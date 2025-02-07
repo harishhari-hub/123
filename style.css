@@ -1,0 +1,130 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+  button:hover {
+    background-color: #45a049; /* Darker green on hover */
+  }
+</style>
+
+body {
+  font-family: Arial, sans-serif;
+  line-height: 1.6;
+}
+
+header {
+  background-color: #333;
+  color: #fff;
+  padding: 10px 0;
+}
+
+header nav ul {
+  display: flex;
+  justify-content: center;
+  list-style: none;
+}
+
+header nav ul li {
+  margin: 0 20px;
+}
+
+header nav ul li a {
+  color: #ff1489;
+  text-decoration: none;
+}
+
+.hero {
+  background: #f37ee0;
+  color: rgb(14, 7, 12);
+  text-align: center;
+  padding: 100px 20px;
+}
+
+.hero h1 {
+  font-size: 3em;
+}
+
+section {
+  padding: 50px 20px;
+}
+
+.about, .contact {
+  background: #dbdadb;
+}
+.profile-photo {
+      position: absolute;
+      top: 10px;  /* Adjust to place it at the top */
+      right: 10px; /* Adjust to place it on the right */
+      width: 50px; /* Adjust size of the image */
+      height: 50px; /* Adjust size of the image */
+      border-radius: 10%; /* Makes the photo circular */
+      border: 2px solid #fff;
+}
+
+.projects {
+  background: #ece3ea;
+}
+
+.project-container {
+  display: flex;
+  justify-content: space-around;
+  flex-wrap: wrap;
+}
+
+.project {
+  background: rgb(206, 203, 205);
+  padding: 20px;
+  width: 30%;
+  margin: 10px;
+  text-align: center;
+}
+
+.project img {
+  width: 100%;
+  height: auto;
+}
+
+footer {
+  text-align: center;
+  background-color: #333;
+  color: white;
+  padding: 10px;
+}
+
+footer p {
+  font-size: 0.9em;
+}
+
+form label {
+  display: block;
+  margin: 10px 0 5px;
+}
+
+form input, form textarea {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+form button {
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  cursor: pointer;
+}
+
+form button:hover {
+  background-color: #45a049;
+}
+
+@media (max-width: 768px) {
+  .project-container {
+    flex-direction: column;
+  }
+
+  .project {
+    width: 100%;
+  }
+}
