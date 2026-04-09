@@ -742,10 +742,12 @@ function toggleEdit() {
     const addWrappers = [
         document.getElementById('addSkillBtn'),
         document.getElementById('addProjectBtn'),
-        document.getElementById('addExpBtn')
+        document.getElementById('addExpBtn'),
+        document.getElementById('saveBtn'),
+        document.getElementById('exportBtn')
     ];
     addWrappers.forEach(el => {
-        if(el) el.style.display = editMode ? "block" : "none";
+        if(el) el.style.display = editMode ? "inline-block" : "none";
     });
 
     if (typeof enableTextEdit === "function") {
