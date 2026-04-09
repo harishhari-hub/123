@@ -443,7 +443,7 @@
     <div class="vault-content" id="vaultContent"></div>
 
     <!-- FLOATING ADD BUTTON -->
-    <button class="floating-add" onclick="openModal()" title="Add to Vault">+</button>
+    <button class="floating-add" id="vaultAddBtn" title="Add to Vault" style="z-index:9999;">+</button>
 
     <!-- ADD MODAL -->
     <div id="modal" style="display:none;">
@@ -764,5 +764,36 @@
             if (e.key === "ArrowRight") slideLightbox(1);
         });
     </script>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    var addBtn = document.getElementById("vaultAddBtn");
+    var modal = document.getElementById("modal");
+    var cancelBtn = document.querySelector(".btn-cancel");
+
+    if (addBtn && modal) {
+      addBtn.addEventListener("click", function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        modal.style.cssText = "display:flex !important; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; align-items:center; justify-content:center;";
+        console.log("Vault modal opened");
+      });
+    }
+
+    if (cancelBtn && modal) {
+      cancelBtn.addEventListener("click", function() {
+        modal.style.display = "none";
+      });
+    }
+
+    // Also override the global functions just in case
+    window.openModal = function() {
+      if (modal) modal.style.cssText = "display:flex !important; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; align-items:center; justify-content:center;";
+    };
+    window.closeModal = function() {
+      if (modal) modal.style.display = "none";
+    };
+  });
+</script>
 </body>
 </html>
