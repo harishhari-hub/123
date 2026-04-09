@@ -712,7 +712,7 @@ function loadTextContent() {
 
 function verifyAdmin() {
     const password = prompt("Enter Admin Password to enable editing:");
-    if (password === "harishhari") {
+    if (password === "1206") {
         alert("Access Granted! Edit Mode Enabled.");
         toggleEdit();
     } else if (password !== null) {
