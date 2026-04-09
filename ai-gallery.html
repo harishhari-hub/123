@@ -468,7 +468,18 @@
     </div>
 
     <!-- FIREBASE COMPAT SDK (works on file:// and https://) -->
-    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js">
+        // UI MODAL CONTROLS
+        function openModal() {
+            const m = document.getElementById("modal");
+            if(m) m.style.display = "flex";
+        }
+        function closeModal() {
+            const m = document.getElementById("modal");
+            if(m) m.style.display = "none";
+        }
+
+    </script>
     <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-storage-compat.js"></script>
     <script src="firebase-config.js"></script>
@@ -567,7 +578,7 @@
                 }
 
                 // Explicit getDocs on the generic collection
-                const querySnapshot = await window.getDocs(window.collection(window.db, "gallery"));
+                const querySnapshot = await window.db.collection("gallery").get();
                 
                 galleryData = [];
                 querySnapshot.forEach((doc) => {
@@ -636,11 +647,11 @@
                 
                 // Upload to Firebase Storage
                 const storagePath = 'gallery/' + Date.now() + '_' + file.name;
-                const fileRef = window.ref(window.storage, storagePath);
-                await window.uploadBytes(fileRef, file);
+                const fileRef = window.storage.ref(storagePath);
+                await fileRef.put(file);
                 
                 // Get public download URL
-                const publicUrl = await window.getDownloadURL(fileRef);
+                const publicUrl = await fileRef.getDownloadURL();
 
                 const newItem = {
                     type: isVideo ? "video" : "image",
@@ -650,7 +661,7 @@
                 };
 
                 // Push explicitly to "gallery" collection
-                await window.addDoc(window.collection(window.db, "gallery"), newItem);
+                await window.db.collection("gallery").add(newItem);
                 
                 closeModal();
                 alert("✅ Added tightly to Cloud Vault!");
@@ -681,14 +692,14 @@
                     
                     if (item.src.includes('firebasestorage')) {
                         try {
-                            const fileRef = window.ref(window.storage, item.src);
-                            await window.deleteObject(fileRef);
+                            const fileRef = window.storage.ref(item.src);
+                            await fileRef.delete();
                         } catch(e) { console.warn("Storage object ignored", e); }
                     }
 
                     // Strict doc deletion
                     if (docId) {
-                        await window.deleteDoc(window.doc(window.db, "gallery", docId));
+                        await window.db.collection("gallery").doc(docId).delete();
                         galleryData.splice(index, 1);
                         renderGallery();
                     }

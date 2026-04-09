@@ -817,7 +817,7 @@ async function loadCertificates() {
   container.innerHTML = "<p style='color:#00e5ff; text-align:center; grid-column:1/-1;'>Loading certificates from secure cloud...</p>";
 
   try {
-    const querySnapshot = await window.getDocs(window.collection(window.db, "certificates"));
+    const querySnapshot = await window.db.collection("certificates").get();
 
     let firebaseCerts = [];
     querySnapshot.forEach((doc) => {
@@ -947,7 +947,7 @@ async function deleteCert(index, docId) {
              loadCertificates();
              return;
         }
-        await window.deleteDoc(window.doc(window.db, "certificates", docId));
+        await window.db.collection("certificates").doc(docId).delete();
         certificates.splice(index, 1);
         loadCertificates();
         alert("Certificate removed from cloud.");
@@ -1018,18 +1018,18 @@ async function saveCertificate() {
     let url = null;
     if (file) {
         // Upload to Firebase Storage
-        const storageRef = window.ref(window.storage, "certificates/" + Date.now() + "_" + file.name);
-        await window.uploadBytes(storageRef, file);
-        url = await window.getDownloadURL(storageRef);
+        const storageRef = window.storage.ref("certificates/" + Date.now() + "_" + file.name);
+        await storageRef.put(file);
+        url = await storageRef.getDownloadURL();
     }
 
     if (editId !== null && docId) {
         const payload = { title, org, desc };
         if (url) payload.image = url;
-        await window.updateDoc(window.doc(window.db, "certificates", docId), payload);
+        await window.db.collection("certificates").doc(docId).update(payload);
     } else {
         // Save to Firestore
-        await window.addDoc(window.collection(window.db, "certificates"), {
+        await window.db.collection("certificates").add({
             title,
             org,
             desc,
