@@ -802,7 +802,7 @@ const DEFAULT_CERTIFICATES = [
 let certificates = [...DEFAULT_CERTIFICATES];
 let editId = null;
 
-// Load saved certificates - Pure Firebase sync
+// Load saved certificates - Pure Firebase sync (Collection Flow)
 async function loadCertsFromStorage() {
   if (!window.db) {
     certificates = [...DEFAULT_CERTIFICATES];
@@ -811,36 +811,28 @@ async function loadCertsFromStorage() {
   }
   
   try {
-    const docRef = window.doc(window.db, "portfolio", "certificates");
-    const docSnap = await window.getDoc(docRef, { source: 'server' });
+    const querySnapshot = await window.getDocs(window.collection(window.db, "certificates"));
     
-    if (docSnap.exists() && docSnap.data().data) {
-      certificates = docSnap.data().data;
-    } else {
-      certificates = [...DEFAULT_CERTIFICATES];
-    }
+    // Only compile dynamic certificates from Firebase
+    let firebaseCerts = [];
+    querySnapshot.forEach((doc) => {
+        firebaseCerts.push({ id: doc.id, ...doc.data() });
+    });
+
+    // Merge static default certs with firebase uploaded certs
+    certificates = [...DEFAULT_CERTIFICATES, ...firebaseCerts];
+    
   } catch (err) {
-    console.warn("Firestore fetch failed, reverting to default certs:", err);
+    console.warn("Firestore collection fetch failed, reverting to defaults:", err);
     certificates = [...DEFAULT_CERTIFICATES];
   } finally {
     renderCertificates();
   }
 }
 
-// Save all certs - Pure Firebase sync
+// Global update trigger when edits happen (not needed natively for Collections but serves as fallback interface)
 async function saveCertData() {
-  if (!window.db) {
-    alert("Database not connected to Cloud Storage!");
-    return;
-  }
-
-  try {
-    await window.setDoc(window.doc(window.db, "portfolio", "certificates"), { data: certificates });
-    console.log("Certificates synced to strict Firebase storage.");
-  } catch(err) {
-    console.error("Firebase save failed:", err.message);
-    alert("Save Failed! Your Firebase access might be restricted.\nError: " + err.message);
-  }
+    // Left empty because we use explicit addDoc/updateDoc in saveCert now.
 }
 
 /* RENDER */
@@ -857,14 +849,17 @@ function renderCertificates() {
 
   certificates.forEach((c, index) => {
     const imgSrc = c.image || "";
-    // Filter out cached local data paths that might be retained in browser session during transition
+    // Filter out cached local data paths
     if (imgSrc.startsWith('file://') || imgSrc.startsWith('C:/')) {
-      return; 
+        return; 
     }
+
+    // Pass the Firebase doc id to the delete function if it's not a default hardcoded statuc cert
+    const docIdArg = c.id ? `'${c.id}'` : 'null';
 
     const adminTools = editMode ? `
       <button class="edit" onclick="openCertModal(${index})">Edit</button>
-      <button class="delete" onclick="deleteCert(${index})">Delete</button>
+      <button class="delete" onclick="deleteCert(${index}, ${docIdArg})">Delete</button>
     ` : "";
 
     grid.innerHTML += `
@@ -943,13 +938,24 @@ function downloadCert(index) {
 }
 
 /* DELETE */
-function deleteCert(index) {
-  if (confirm(`Delete "${certificates[index].title}" from Cloud Storage?`)) {
-    // Note: To be fully clean we should also delete the Storage object here, 
-    // but the main requirement is removing from DB.
-    certificates.splice(index, 1);
-    saveCertData();
-    renderCertificates();
+async function deleteCert(index, docId) {
+  if (confirm(`Permanently delete "${certificates[index].title}" from Cloud Storage?`)) {
+    try {
+        if (!docId) {
+             // Basic hardcoded static array filter if they choose to delete default certs locally
+             certificates.splice(index, 1);
+             renderCertificates();
+             return;
+        }
+
+        // Strict doc deletion from Firebase
+        await window.deleteDoc(window.doc(window.db, "certificates", docId));
+        certificates.splice(index, 1);
+        renderCertificates();
+        alert("Certificate removed from cloud.");
+    } catch (e) {
+        alert("Delete failed: " + e.message);
+    }
   }
 }
 
@@ -982,7 +988,7 @@ function closeCertModal() {
   document.getElementById("certModal").style.display = "none";
 }
 
-/* SAVE CERT — Direct Cloud Upload (No base64) */
+/* SAVE CERT — Direct Cloud Collection Upload */
 async function saveCert() {
   const title = document.getElementById("certTitle").value.trim();
   const org   = document.getElementById("certOrg").value.trim();
@@ -995,19 +1001,27 @@ async function saveCert() {
     return;
   }
 
-  const saveBtn = document.querySelector(".cert-modal-content button.save");
-  if(saveBtn) saveBtn.innerHTML = "Saving to Cloud...";
+  const saveBtns = document.querySelectorAll(".cert-modal-content button.save, .cert-modal-content .btn.primary");
+  const activeBtn = saveBtns.length > 0 ? saveBtns[saveBtns.length - 1] : null;
+
+  if(activeBtn) {
+      activeBtn.innerHTML = "Saving to Cloud...";
+      activeBtn.disabled = true;
+  }
 
   try {
     let publicUrl = null;
+    let docId = editId !== null ? certificates[editId].id : null;
 
     // Editing text only (no new image)
     if (editId !== null && !file) {
-      certificates[editId].title = title;
-      certificates[editId].org   = org;
-      certificates[editId].desc  = desc;
-      await saveCertData();
-      renderCertificates();
+      if (docId) {
+          await window.updateDoc(window.doc(window.db, "certificates", docId), {
+              title, org, desc
+          });
+      }
+      
+      await loadCertsFromStorage(); // Refresh everything natively
       closeCertModal();
       alert("✅ Certificate updated in Cloud!");
       return;
@@ -1015,11 +1029,16 @@ async function saveCert() {
 
     if (!file) {
       alert("Please select an image!");
+      if(activeBtn) {
+          activeBtn.innerHTML = "Save";
+          activeBtn.disabled = false;
+      }
       return;
     }
     
     if (!window.storage) {
        alert("Firebase Storage not initialized.");
+       if(activeBtn) { activeBtn.innerHTML = "Save"; activeBtn.disabled = false;}
        return;
     }
 
@@ -1031,24 +1050,34 @@ async function saveCert() {
     // Get public URL
     publicUrl = await window.getDownloadURL(fileRef);
 
-    if (editId !== null) {
-      certificates[editId] = { ...certificates[editId], title, org, desc, image: publicUrl };
+    if (editId !== null && docId) {
+        // Update existing document
+        await window.updateDoc(window.doc(window.db, "certificates", docId), {
+             title, org, desc, image: publicUrl
+        });
     } else {
-      certificates.push({ title, org, desc, image: publicUrl });
+        // Add completely new document to collection
+        await window.addDoc(window.collection(window.db, "certificates"), {
+             title, org, desc, image: publicUrl
+        });
     }
 
-    await saveCertData();
-    renderCertificates();
+    await loadCertsFromStorage(); // Refresh natively
     closeCertModal();
-    alert("✅ Certificate saved directly to Cloud!");
+    alert("✅ Certificate saved safely to specific Firebase Collection!");
 
   } catch (e) {
     console.error("Cert upload failed", e);
     alert("Upload failed: " + e.message);
   } finally {
-    if(saveBtn) saveBtn.innerHTML = "Save Certificate";
+    if(activeBtn) {
+        activeBtn.innerHTML = "Save";
+        activeBtn.disabled = false;
+    }
   }
 }
+
+
 
 
 function closeSkillModal() {

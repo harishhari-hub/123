@@ -474,7 +474,7 @@
     <script src="firebase-config.js"></script>
     <script>
         // ==========================================
-        // SHARAN VAULT — Pure Firebase Storage System
+        // SHARAN VAULT — Pure Firebase Storage Collection System
         // ==========================================
 
         let galleryData = [];
@@ -512,9 +512,9 @@
             let hasVideos = false;
 
             galleryData.forEach((item, index) => {
-                // Safeguard against local file paths that might be cached in older records
+                // Safeguard against old local paths
                 if (item.src && (item.src.startsWith('file://') || item.src.startsWith('C:/'))) {
-                    return; // Skip broken local data
+                    return; 
                 }
 
                 const dateStr = item.date || "Unknown Date";
@@ -527,7 +527,7 @@
                                <video src="${item.src}" preload="metadata"></video>`
                             : `<img src="${item.src}" loading="lazy" alt="Vault Item">`
                         }
-                        <div class="delete-btn" onclick="deleteMedia(${index}, event)">
+                        <div class="delete-btn" onclick="deleteMedia(${index}, "${item.id}", event)">
                             <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                             </svg>
@@ -566,18 +566,20 @@
                     return;
                 }
 
-                // Explicit getDoc bypassing cache
-                const docRef = window.doc(window.db, "portfolio", "gallery");
-                const docSnap = await window.getDoc(docRef, { source: 'server' });
+                // Explicit getDocs on the generic collection
+                const querySnapshot = await window.getDocs(window.collection(window.db, "gallery"));
                 
-                if (docSnap.exists() && docSnap.data().data) {
-                    galleryData = docSnap.data().data;
-                } else {
-                    galleryData = [];
-                }
+                galleryData = [];
+                querySnapshot.forEach((doc) => {
+                    galleryData.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Sort newest first
+                galleryData.sort((a, b) => b.timestamp - a.timestamp);
+
             } catch (err) {
                 console.warn("Firestore fetch failed:", err);
-                galleryData = []; // Fallback empty state
+                galleryData = []; 
             } finally {
                 renderGallery();
                 // Ensure loader ALWAYS disappears no matter what
@@ -587,7 +589,6 @@
 
         // ON-LOAD INITIALIZATION
         window.onload = () => {
-            // Give Firebase a tiny bit of time if initialization is delayed
             setTimeout(() => {
                 loadGalleryData();
             }, 500);
@@ -599,13 +600,19 @@
                     loading.style.display = "none";
                     if (galleryData.length === 0) renderGallery();
                 }
-            }, 3000);
+            }, 4000);
         };
 
-        // FIREBASE STORAGE UPLOAD
-        async function addMedia(event) {
-            const file = event.target.files[0];
-            if (!file) return;
+        // FIREBASE STORAGE UPLOAD (Collection Flow)
+        async function addMedia() {
+            const fileInput = document.getElementById("mediaInput");
+            if (!fileInput) return alert("Upload element error");
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert("Please select a file to upload!");
+                return;
+            }
 
             if (!window.db || !window.storage) {
                 alert("Cloud Storage is not connected!");
@@ -613,16 +620,22 @@
             }
 
             const loading = document.getElementById("loading");
+            const saveBtn = document.querySelector(".btn-save");
+            
             if (loading) {
                 loading.style.display = "flex";
                 loading.innerHTML = '<div class="spinner"></div><p>Uploading to secure cloud...</p>';
+            }
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = "Uploading...";
             }
 
             try {
                 const isVideo = file.type.startsWith('video/');
                 
                 // Upload to Firebase Storage
-                const storagePath = 'vault/' + Date.now() + '_' + file.name;
+                const storagePath = 'gallery/' + Date.now() + '_' + file.name;
                 const fileRef = window.ref(window.storage, storagePath);
                 await window.uploadBytes(fileRef, file);
                 
@@ -632,21 +645,25 @@
                 const newItem = {
                     type: isVideo ? "video" : "image",
                     src: publicUrl,
-                    date: new Date().toLocaleDateString('en-GB')
+                    date: new Date().toLocaleDateString('en-GB'),
+                    timestamp: Date.now()
                 };
 
-                // Push to gallery and save to Firestore
-                galleryData.unshift(newItem); // Add to beginning
-                await window.setDoc(window.doc(window.db, "portfolio", "gallery"), { data: galleryData });
+                // Push explicitly to "gallery" collection
+                await window.addDoc(window.collection(window.db, "gallery"), newItem);
                 
-                // Re-render
-                renderGallery();
+                closeModal();
+                alert("✅ Added tightly to Cloud Vault!");
+                await loadGalleryData(); // Refresh cleanly
 
             } catch (error) {
                 console.error("Upload failed", error);
                 alert("Upload failed: " + error.message);
             } finally {
-                // Restore loading UI and hide
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = "Save to Vault";
+                }
                 if (loading) {
                     loading.innerHTML = '<div class="spinner"></div><p>Loading Vault...</p>';
                     loading.style.display = "none";
@@ -655,30 +672,26 @@
         }
 
         // DELETE MEDIA
-        async function deleteMedia(index, event) {
-            event.stopPropagation(); // Setup lightbox clicks
+        async function deleteMedia(index, docId, event) {
+            event.stopPropagation(); 
             
             if (confirm("Permanently delete this from the secure cloud?")) {
                 try {
                     const item = galleryData[index];
                     
-                    // Attempt to delete from Storage if it's a firebase URL
                     if (item.src.includes('firebasestorage')) {
                         try {
-                            // Extract path from download URL or just rely on Firestore delete
-                            // A robust delete would parse the URL, but setting Firestore is primary
                             const fileRef = window.ref(window.storage, item.src);
                             await window.deleteObject(fileRef);
-                        } catch(e) {
-                            console.warn("Storage item delete skipped or failed", e);
-                        }
+                        } catch(e) { console.warn("Storage object ignored", e); }
                     }
 
-                    // Remove from array and update Firestore
-                    galleryData.splice(index, 1);
-                    await window.setDoc(window.doc(window.db, "portfolio", "gallery"), { data: galleryData });
-                    
-                    renderGallery();
+                    // Strict doc deletion
+                    if (docId) {
+                        await window.deleteDoc(window.doc(window.db, "gallery", docId));
+                        galleryData.splice(index, 1);
+                        renderGallery();
+                    }
                     
                 } catch(e) {
                     alert("Delete failed: " + e.message);
