@@ -578,133 +578,6 @@ function openAddCertificate() {
 
 
 // ==========================================
-// FULL FINAL SYSTEM (ADMIN + CRUD + STORAGE)
-// ==========================================
-const ADMIN_PASSWORD = "1206"; // Simple for testing
-
-let portfolioData = window.DEFAULT_PORTFOLIO_DATA || {
-    certifications: [],
-    textContent: []
-};
-let editMode = false;
-let editingIndex = -1; // -1 means adding new, >=0 means editing existing
-
-function saveData() {
-    // Data is now saved to Firebase Firestore via individual section save functions
-}
-
-// --- ADMIN TOGGLE ---
-function verifyAdmin() {
-    const pass = prompt("Enter Admin Password:");
-    return pass === ADMIN_PASSWORD;
-}
-
-function toggleEdit() {
-    if (!editMode && !verifyAdmin()) {
-        alert("Access Denied ❌");
-        return;
-    }
-
-    editMode = !editMode;
-    const navBtn = document.getElementById("navEditBtn");
-    const addBtn = document.getElementById("addCertBtn");
-    const saveBtn = document.getElementById("saveBtn");
-    const exportBtn = document.getElementById("exportBtn");
-
-    if (editMode) {
-        navBtn.innerHTML = '<i class="fa-solid fa-lock-open"></i> Exit Admin';
-        navBtn.classList.add("active-admin");
-        if (addBtn) addBtn.style.display = 'inline-block';
-        if (saveBtn) saveBtn.style.display = 'inline-block';
-        if (exportBtn) exportBtn.style.display = 'inline-block';
-        document.body.classList.add('admin-mode');
-        enableTextEdit();
-    } else {
-        navBtn.innerHTML = '<i class="fa-solid fa-lock"></i> Edit Portfolio';
-        navBtn.classList.remove("active-admin");
-        navBtn.style.background = '';
-        if (addBtn) addBtn.style.display = 'none';
-        if (saveBtn) saveBtn.style.display = 'none';
-        if (exportBtn) exportBtn.style.display = 'none';
-        document.body.classList.remove('admin-mode');
-        disableTextEdit();
-        saveTextContent();
-    }
-
-    // Re-render to show/hide the card admin buttons
-    renderCertificates();
-}
-
-function exportForGithub() {
-    const dataStr = "window.DEFAULT_PORTFOLIO_DATA = " + JSON.stringify(portfolioData, null, 2) + ";";
-    const blob = new Blob([dataStr], { type: "text/javascript" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "data.js";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    alert("✅ Downloaded data.js!\n\nUpload ONLY this file to your GitHub repository to restore all certificates and content on the live site!");
-}
-
-function savePortfolio() {
-    // Save text editable content
-    saveTextContent();
-    // Save certificates
-    saveCertData();
-    alert("✅ Portfolio saved successfully!");
-    
-    // Automatically exit edit mode
-    if (editMode) {
-        toggleEdit();
-    }
-}
-
-// --- TEXT EDITING (A-Z) ---
-function enableTextEdit() {
-    document.querySelectorAll(".editable").forEach(el => {
-        el.contentEditable = true;
-        el.style.outline = "1px dashed cyan";
-        el.style.outlineOffset = "4px";
-    });
-}
-
-function disableTextEdit() {
-    document.querySelectorAll(".editable").forEach(el => {
-        el.contentEditable = false;
-        el.style.outline = "none";
-        el.style.outlineOffset = "";
-    });
-}
-
-function saveTextContent() {
-  const editables = document.querySelectorAll('[contenteditable="true"]');
-  let toSave = [];
-  editables.forEach(el => {
-    if (el.id) toSave.push({ id: el.id, content: el.innerHTML });
-  });
-  if(window.db) {
-    window.setDoc(window.doc(window.db, "portfolio", "textContent"), { data: toSave });
-  }
-}
-
-function loadTextContent() {
-  if(!window.db) return;
-  window.onSnapshot(window.doc(window.db, "portfolio", "textContent"), (docSnap) => {
-    if (docSnap.exists() && docSnap.data().data) {
-      docSnap.data().data.forEach(item => {
-        const el = document.getElementById(item.id);
-        if (el) el.innerHTML = item.content;
-      });
-    }
-  });
-}
-
-
-
-// ==========================================
 // CERTIFICATE SYSTEM — Static File-Based (GitHub Compatible)
 // ==========================================
 
@@ -713,15 +586,14 @@ const DEFAULT_CERTIFICATES = [
   { title: "Cyber Crime Analytics - Part 1", org: "LetsDefend", desc: "Cybercrime analytics training covering investigation techniques and threat analysis.", image: "certificate/cyber%20crime%20analytics%201.jgp.jpeg" },
   { title: "Cyber Crime Analytics - Part 2", org: "LetsDefend", desc: "Advanced cybercrime analytics covering forensic methodologies and case analysis.", image: "certificate/cyber%20crime%20analytics%202.jpg.jpeg" },
   { title: "Data Analytics", org: "Coursera", desc: "Data analytics fundamentals including visualization, interpretation, and reporting.", image: "certificate/data%20analytics%20.jpg.jpeg" },
-  { title: "Ethical Hacking", org: "Udemy", desc: "Comprehensive ethical hacking course covering penetration testing tools and techniques.", image: "certificate/ethical%20hacking%20course.jpg.jpeg" },
+  { title: "Ethical Hacking", org: "NPTEL", desc: "Comprehensive ethical hacking course covering network security and penetration testing.", image: "certificate/ethical%20hacking%20course.jpg.jpeg" },
   { title: "Google Cybersecurity", org: "Google", desc: "Google's professional cybersecurity certificate covering security operations and risk management.", image: "certificate/google.jpg.jpeg" },
-  { title: "SOC Analysis - Level 2", org: "LetsDefend", desc: "Advanced SOC analyst certification covering incident response and threat hunting.", image: "certificate/letdefend2.jpg.jpeg" },
-  { title: "SOC Analysis - Level 1", org: "LetsDefend", desc: "SOC analyst training covering SIEM operations, log analysis, and alert triaging.", image: "certificate/letsdefend.jpg.jpeg" },
+  { title: "SOC Analysis - Level 2", org: "LetsDefend", desc: "Advanced SOC analyst certification covering incident response and threat hunting.", image: "certificate/letdefend2.jpg.jpeg" },      
+  { title: "SOC Analysis - Level 1", org: "LetsDefend", desc: "SOC analyst training covering SIEM operations, log analysis, and alert triaging.", image: "certificate/letsdefend.jpg.jpeg" },       
   { title: "MSK Security Badge", org: "Mydhili Sharan K", desc: "Personal achievement badge recognizing excellence in cybersecurity practice.", image: "certificate/MSHARAN.jpg.jpg" },
   { title: "Project Completion", org: "Academic", desc: "Project completion certificate for cybersecurity-focused academic work.", image: "certificate/project.jpg.jpeg" },
   { title: "TryHackMe", org: "TryHackMe", desc: "Hands-on cybersecurity training completing real-world hacking challenges and labs.", image: "certificate/try%20hack%20me.jpg.jpeg" }
 ];
-
 
 let certificates = [...DEFAULT_CERTIFICATES];
 let editId = null;
@@ -742,7 +614,15 @@ function loadCertsFromStorage() {
 // Save all certs to localStorage
 function saveCertData() {
   if(!window.db) return;
-  window.setDoc(window.doc(window.db, "portfolio", "certificates"), { data: certificates });
+  window.setDoc(window.doc(window.db, "portfolio", "certificates"), { data: certificates })
+    .then(() => {
+        const adminStatus = document.getElementById("adminStatus");
+        if(adminStatus) adminStatus.innerHTML = '<span style="color:#00ff88">✅ Database sync successful!</span>';
+    })
+    .catch((error) => {
+        console.error("Firebase Sync Error:", error);
+        alert("\n\nWARNING: Database Sync Failed!\n\nFirebase blocked your save because of missing Authenticated Database Rules! Your edits will be lost upon refreshing the page. Please set your Firebase Firestore Rules to 'allow read, write: if true;'\n\n");
+    });
 }
 
 /* RENDER */
@@ -764,11 +644,12 @@ function renderCertificates() {
       <button class="delete" onclick="deleteCert(${index})">Delete</button>
     ` : "";
 
+    const escapedTitle = c.title.replace(/'/g, "\\'");
     grid.innerHTML += `
       <div class="cert-card">
         <div class="cert-img">
           <img src="${imgSrc}" alt="${c.title}" loading="lazy"
-            onerror="this.onerror=null;this.style.display='none';this.parentElement.innerHTML+='<div style=\'display:flex;flex-direction:column;align-items:center;justify-content:center;height:160px;background:rgba(0,200,255,0.05);border:1px dashed rgba(0,200,255,0.3);border-radius:8px;padding:10px;\'><div style=\'font-size:40px;\'>🏅</div></div>'">
+            onerror="this.onerror=null;this.style.display='none';this.parentElement.innerHTML+='<div style=\'display:flex;flex-direction:column;align-items:center;justify-content:center;height:160px;background:rgba(0,200,255,0.05);border:1px dashed rgba(0,200,255,0.3);border-radius:8px;padding:10px;\'><div style=\'font-size:40px;\'>🏅</div><span style=\'color:rgba(0,200,255,0.6);font-size:12px;margin-top:6px;text-align:center;\'>${escapedTitle}</span></div>'">
         </div>
         <div class="cert-content">
           <h3>${c.title}</h3>
