@@ -1,0 +1,85 @@
+[debug] [2026-04-08T10:09:59.584Z] ----------------------------------------------------------------------
+[debug] [2026-04-08T10:09:59.587Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\MYDHILI SHARAN K\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js login --no-localhost
+[debug] [2026-04-08T10:09:59.588Z] CLI Version:   15.13.0
+[debug] [2026-04-08T10:09:59.588Z] Platform:      win32
+[debug] [2026-04-08T10:09:59.588Z] Node Version:  v24.7.0
+[debug] [2026-04-08T10:09:59.588Z] Time:          Wed Apr 08 2026 15:39:59 GMT+0530 (India Standard Time)
+[debug] [2026-04-08T10:09:59.588Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-04-08T10:09:59.591Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[info] i  The Firebase CLI’s MCP server feature can optionally make use of Gemini in Firebase. Learn more about Gemini in Firebase and how it uses your data: https://firebase.google.com/docs/gemini-in-firebase#how-gemini-in-firebase-uses-your-data 
+[debug] [2026-04-08T10:10:00.448Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
+[debug] [2026-04-08T10:10:00.448Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}
+[info] 
+[info] i  Firebase optionally collects CLI and Emulator Suite usage and error reporting information to help improve our products. Data is collected in accordance with Google's privacy policy (https://policies.google.com/privacy) and is not used to identify you. 
+[debug] [2026-04-08T10:11:53.700Z] >>> [apiv2][query] POST https://auth.firebase.tools/attest [none]
+[debug] [2026-04-08T10:11:53.700Z] >>> [apiv2][body] POST https://auth.firebase.tools/attest {"session_id":"d4d11d1a-610c-403d-af99-cb4514bb37ed"}
+[debug] [2026-04-08T10:11:54.664Z] <<< [apiv2][status] POST https://auth.firebase.tools/attest 200
+[debug] [2026-04-08T10:11:54.664Z] <<< [apiv2][body] POST https://auth.firebase.tools/attest {"token":"5-KZaB6remjPr707YnmAN7RLGo9hNbNx_srKg9tHZRU"}
+[info] 
+[info] To sign in to the Firebase CLI:
+[info] 
+[info] 1. Take note of your session ID:
+[info] 
+[info]    D4D11
+[info] 
+[info] 2. Visit the URL below on any device and follow the instructions to get your code:
+[info] 
+[info]    https://auth.firebase.tools/login?code_challenge=-MheHXknN1ckU0p0rN3jM3tiwno_g3CrRMe6VhQaCaE&session=d4d11d1a-610c-403d-af99-cb4514bb37ed&attest=5-KZaB6remjPr707YnmAN7RLGo9hNbNx_srKg9tHZRU
+[info] 
+[info] 3. Paste or enter the authorization code below once you have it:
+[info] 
+[debug] [2026-04-08T10:13:49.975Z] ExitPromptError: User force closed the prompt with SIGINT
+    at Interface.sigint (C:\Users\MYDHILI SHARAN K\AppData\Roaming\npm\node_modules\firebase-tools\node_modules\@inquirer\core\dist\commonjs\lib\create-prompt.js:101:37)
+    at Interface.emit (node:events:508:28)
+    at [_ttyWrite] [as _ttyWrite] (node:internal/readline/interface:1315:18)
+    at ReadStream.onkeypress (node:internal/readline/interface:284:20)
+    at ReadStream.emit (node:events:520:35)
+    at emitKeys (node:internal/readline/utils:371:14)
+    at emitKeys.next (<anonymous>)
+    at ReadStream.onData (node:internal/readline/emitKeypressEvents:64:36)
+    at ReadStream.emit (node:events:508:28)
+    at addChunk (node:internal/streams/readable:559:12)
+[error] 
+[error] Error: An unexpected error has occurred.
+[debug] [2026-04-08T10:20:23.765Z] ----------------------------------------------------------------------
+[debug] [2026-04-08T10:20:23.769Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\MYDHILI SHARAN K\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js login --no-localhost
+[debug] [2026-04-08T10:20:23.769Z] CLI Version:   15.13.0
+[debug] [2026-04-08T10:20:23.770Z] Platform:      win32
+[debug] [2026-04-08T10:20:23.770Z] Node Version:  v24.7.0
+[debug] [2026-04-08T10:20:23.770Z] Time:          Wed Apr 08 2026 15:50:23 GMT+0530 (India Standard Time)
+[debug] [2026-04-08T10:20:23.770Z] ----------------------------------------------------------------------
+[debug] 
+[info] i  The Firebase CLI’s MCP server feature can optionally make use of Gemini in Firebase. Learn more about Gemini in Firebase and how it uses your data: https://firebase.google.com/docs/gemini-in-firebase#how-gemini-in-firebase-uses-your-data 
+[info] 
+[info] i  Firebase optionally collects CLI and Emulator Suite usage and error reporting information to help improve our products. Data is collected in accordance with Google's privacy policy (https://policies.google.com/privacy) and is not used to identify you. 
+[debug] [2026-04-08T10:22:13.367Z] >>> [apiv2][query] POST https://auth.firebase.tools/attest [none]
+[debug] [2026-04-08T10:22:13.368Z] >>> [apiv2][body] POST https://auth.firebase.tools/attest {"session_id":"2d76bea5-e9fa-4935-82a9-1305f1a1c22f"}
+[debug] [2026-04-08T10:22:14.043Z] <<< [apiv2][status] POST https://auth.firebase.tools/attest 200
+[debug] [2026-04-08T10:22:14.043Z] <<< [apiv2][body] POST https://auth.firebase.tools/attest {"token":"xmCeCp7io0Jsgcrug9AvZXPwz5PUHJI_ERyXOfjp5Ns"}
+[info] 
+[info] To sign in to the Firebase CLI:
+[info] 
+[info] 1. Take note of your session ID:
+[info] 
+[info]    2D76B
+[info] 
+[info] 2. Visit the URL below on any device and follow the instructions to get your code:
+[info] 
+[info]    https://auth.firebase.tools/login?code_challenge=F5SHEn655_Td3l8KTYJaiuTFZzqj5LaF5xTlIYvmqrA&session=2d76bea5-e9fa-4935-82a9-1305f1a1c22f&attest=xmCeCp7io0Jsgcrug9AvZXPwz5PUHJI_ERyXOfjp5Ns
+[info] 
+[info] 3. Paste or enter the authorization code below once you have it:
+[info] 
+[debug] [2026-04-08T10:27:35.617Z] ExitPromptError: User force closed the prompt with SIGINT
+    at Interface.sigint (C:\Users\MYDHILI SHARAN K\AppData\Roaming\npm\node_modules\firebase-tools\node_modules\@inquirer\core\dist\commonjs\lib\create-prompt.js:101:37)
+    at Interface.emit (node:events:508:28)
+    at [_ttyWrite] [as _ttyWrite] (node:internal/readline/interface:1315:18)
+    at ReadStream.onkeypress (node:internal/readline/interface:284:20)
+    at ReadStream.emit (node:events:520:35)
+    at emitKeys (node:internal/readline/utils:371:14)
+    at emitKeys.next (<anonymous>)
+    at ReadStream.onData (node:internal/readline/emitKeypressEvents:64:36)
+    at ReadStream.emit (node:events:508:28)
+    at addChunk (node:internal/streams/readable:559:12)
+[error] 
+[error] Error: An unexpected error has occurred.
