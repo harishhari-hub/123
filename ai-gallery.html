@@ -810,10 +810,11 @@
         window.onload = () => {
             const loading = document.getElementById("loading");
 
-            // Hardcode 5 second timeout fallback
+            // Hard 3-second timeout - hides spinner regardless of Firebase
             setTimeout(() => {
                 if (loading) loading.style.display = "none";
-            }, 5000);
+                if (galleryData.length === 0) renderGallery();
+            }, 3000);
 
             if (window.db) {
                 try {
