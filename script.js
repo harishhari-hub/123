@@ -799,27 +799,45 @@ const DEFAULT_CERTIFICATES = [
   { title: "TryHackMe", org: "TryHackMe", desc: "Hands-on cybersecurity training completing real-world hacking challenges and labs.", image: "certificate/try%20hack%20me.jpg.jpeg" }
 ];
 
-
 let certificates = [...DEFAULT_CERTIFICATES];
 let editId = null;
 
-// Load saved certificates (localStorage additions on top of defaults)
+// Load saved certificates from Firestore
 function loadCertsFromStorage() {
-  if(!window.db) return;
-  window.onSnapshot(window.doc(window.db, "portfolio", "certificates"), (docSnap) => {
-    if (docSnap.exists() && docSnap.data().data) {
-      certificates = docSnap.data().data;
-    } else {
-      certificates = [...DEFAULT_CERTIFICATES];
-    }
+  if(!window.db) {
+    certificates = [...DEFAULT_CERTIFICATES];
     renderCertificates();
-  });
+    return;
+  }
+  window.onSnapshot(
+    window.doc(window.db, "portfolio", "certificates"),
+    (docSnap) => {
+      if (docSnap.exists() && docSnap.data().data) {
+        certificates = docSnap.data().data;
+      } else {
+        certificates = [...DEFAULT_CERTIFICATES];
+      }
+      renderCertificates();
+    },
+    (err) => {
+      console.warn("Firestore cert read failed:", err);
+      certificates = [...DEFAULT_CERTIFICATES];
+      renderCertificates();
+    }
+  );
 }
 
-// Save all certs to localStorage
+// Save all certs to Firestore
 function saveCertData() {
-  if(!window.db) return;
-  window.setDoc(window.doc(window.db, "portfolio", "certificates"), { data: certificates });
+  if(!window.db) {
+    alert("Database not connected. Changes may not be saved.");
+    return;
+  }
+  window.setDoc(window.doc(window.db, "portfolio", "certificates"), { data: certificates })
+    .then(() => console.log("Certificates saved to Firebase"))
+    .catch(err => {
+      alert("Save Failed! Your Firestore Rules may be blocking writes.\n\nGo to Firebase Console > Firestore > Rules and set:\nallow read, write: if true;\n\nError: " + err.message);
+    });
 }
 
 /* RENDER */
