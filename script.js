@@ -802,54 +802,44 @@ const DEFAULT_CERTIFICATES = [
 let certificates = [...DEFAULT_CERTIFICATES];
 let editId = null;
 
-// Load saved certificates - localStorage first, Firebase optional sync
-function loadCertsFromStorage() {
-  // Always load from localStorage first (instant, no network)
-  const saved = localStorage.getItem('portfolioCertificates');
-  if (saved) {
-    try {
-      certificates = JSON.parse(saved);
-    } catch(e) {
+// Load saved certificates - Pure Firebase sync
+async function loadCertsFromStorage() {
+  if (!window.db) {
+    certificates = [...DEFAULT_CERTIFICATES];
+    renderCertificates();
+    return;
+  }
+  
+  try {
+    const docRef = window.doc(window.db, "portfolio", "certificates");
+    const docSnap = await window.getDoc(docRef, { source: 'server' });
+    
+    if (docSnap.exists() && docSnap.data().data) {
+      certificates = docSnap.data().data;
+    } else {
       certificates = [...DEFAULT_CERTIFICATES];
     }
-  } else {
+  } catch (err) {
+    console.warn("Firestore fetch failed, reverting to default certs:", err);
     certificates = [...DEFAULT_CERTIFICATES];
-  }
-  renderCertificates();
-
-  // Try Firebase in background to sync across devices (optional)
-  if (window.db) {
-    try {
-      window.onSnapshot(
-        window.doc(window.db, "portfolio", "certificates"),
-        (docSnap) => {
-          if (docSnap.exists() && docSnap.data().data) {
-            certificates = docSnap.data().data;
-            localStorage.setItem('portfolioCertificates', JSON.stringify(certificates));
-            renderCertificates();
-          }
-        },
-        (err) => {
-          console.warn("Firebase sync unavailable, using localStorage:", err.code || err.message);
-        }
-      );
-    } catch(e) {
-      console.warn("Firebase cert sync skipped:", e.message);
-    }
+  } finally {
+    renderCertificates();
   }
 }
 
-// Save all certs - localStorage primary, Firebase optional sync
-function saveCertData() {
-  // Always save to localStorage (works without Firebase rules)
-  localStorage.setItem('portfolioCertificates', JSON.stringify(certificates));
-  console.log("Certificates saved to localStorage");
+// Save all certs - Pure Firebase sync
+async function saveCertData() {
+  if (!window.db) {
+    alert("Database not connected to Cloud Storage!");
+    return;
+  }
 
-  // Try Firebase sync in background (silently)
-  if (window.db) {
-    window.setDoc(window.doc(window.db, "portfolio", "certificates"), { data: certificates })
-      .then(() => console.log("Certificates synced to Firebase"))
-      .catch(err => console.warn("Firebase sync unavailable (localStorage is primary):", err.code || err.message));
+  try {
+    await window.setDoc(window.doc(window.db, "portfolio", "certificates"), { data: certificates });
+    console.log("Certificates synced to strict Firebase storage.");
+  } catch(err) {
+    console.error("Firebase save failed:", err.message);
+    alert("Save Failed! Your Firebase access might be restricted.\nError: " + err.message);
   }
 }
 
@@ -867,6 +857,11 @@ function renderCertificates() {
 
   certificates.forEach((c, index) => {
     const imgSrc = c.image || "";
+    // Filter out cached local data paths that might be retained in browser session during transition
+    if (imgSrc.startsWith('file://') || imgSrc.startsWith('C:/')) {
+      return; 
+    }
+
     const adminTools = editMode ? `
       <button class="edit" onclick="openCertModal(${index})">Edit</button>
       <button class="delete" onclick="deleteCert(${index})">Delete</button>
@@ -943,13 +938,15 @@ function downloadCert(index) {
   if (!cert || !cert.image) return alert("No image to download!");
   const link = document.createElement("a");
   link.href = cert.image;
-  link.download = cert.title + " Certificate.jpg";
+  link.download = cert.title + " Certificate.png";
   link.click();
 }
 
 /* DELETE */
 function deleteCert(index) {
-  if (confirm(`Delete "${certificates[index].title}"?`)) {
+  if (confirm(`Delete "${certificates[index].title}" from Cloud Storage?`)) {
+    // Note: To be fully clean we should also delete the Storage object here, 
+    // but the main requirement is removing from DB.
     certificates.splice(index, 1);
     saveCertData();
     renderCertificates();
@@ -985,8 +982,8 @@ function closeCertModal() {
   document.getElementById("certModal").style.display = "none";
 }
 
-/* SAVE CERT — with image compression */
-function saveCert() {
+/* SAVE CERT — Direct Cloud Upload (No base64) */
+async function saveCert() {
   const title = document.getElementById("certTitle").value.trim();
   const org   = document.getElementById("certOrg").value.trim();
   const desc  = document.getElementById("certDesc").value.trim();
@@ -998,235 +995,62 @@ function saveCert() {
     return;
   }
 
-  // Editing text only (no new image)
-  if (editId !== null && !file) {
-    certificates[editId].title = title;
-    certificates[editId].org   = org;
-    certificates[editId].desc  = desc;
-    saveCertData();
+  const saveBtn = document.querySelector(".cert-modal-content button.save");
+  if(saveBtn) saveBtn.innerHTML = "Saving to Cloud...";
+
+  try {
+    let publicUrl = null;
+
+    // Editing text only (no new image)
+    if (editId !== null && !file) {
+      certificates[editId].title = title;
+      certificates[editId].org   = org;
+      certificates[editId].desc  = desc;
+      await saveCertData();
+      renderCertificates();
+      closeCertModal();
+      alert("✅ Certificate updated in Cloud!");
+      return;
+    }
+
+    if (!file) {
+      alert("Please select an image!");
+      return;
+    }
+    
+    if (!window.storage) {
+       alert("Firebase Storage not initialized.");
+       return;
+    }
+
+    // Upload to Firebase Storage
+    const storagePath = 'certificates/' + Date.now() + '_' + file.name;
+    const fileRef = window.ref(window.storage, storagePath);
+    await window.uploadBytes(fileRef, file);
+    
+    // Get public URL
+    publicUrl = await window.getDownloadURL(fileRef);
+
+    if (editId !== null) {
+      certificates[editId] = { ...certificates[editId], title, org, desc, image: publicUrl };
+    } else {
+      certificates.push({ title, org, desc, image: publicUrl });
+    }
+
+    await saveCertData();
     renderCertificates();
     closeCertModal();
-    alert("✅ Certificate updated!");
-    return;
+    alert("✅ Certificate saved directly to Cloud!");
+
+  } catch (e) {
+    console.error("Cert upload failed", e);
+    alert("Upload failed: " + e.message);
+  } finally {
+    if(saveBtn) saveBtn.innerHTML = "Save Certificate";
   }
-
-  if (!file) {
-    alert("Please select an image!");
-    return;
-  }
-
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const img = new Image();
-    img.onload = function() {
-      try {
-        const canvas = document.createElement("canvas");
-        const MAX = 500;
-        let w = img.width, h = img.height;
-        if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
-        canvas.width = w; canvas.height = h;
-        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-        const compressed = canvas.toDataURL("image/jpeg", 0.5);
-
-        if (editId !== null) {
-          certificates[editId] = { ...certificates[editId], title, org, desc, image: compressed };
-        } else {
-          certificates.push({ title, org, desc, image: compressed });
-        }
-
-        saveCertData();
-        renderCertificates();
-        closeCertModal();
-        alert("✅ Certificate saved successfully!");
-
-      } catch (err) {
-        alert("❌ Error processing image: " + err.message);
-      }
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
 }
 
 
-/* LOAD ON PAGE READY */
-
-        function initScript() {
-            if (typeof loadTextContent === "function") loadTextContent();
-            
-            // ALWAYS render certificates at least once from default placeholders
-            if(typeof renderCertificates === 'function') renderCertificates();
-
-            if(!window.db) return;
-            
-            // Sync Certificates correctly from Firebase!
-            window.onSnapshot(window.doc(window.db, "portfolio", "certificates"), (docSnap) => {
-                if(docSnap.exists() && docSnap.data().data) {
-                    certificates = docSnap.data().data;
-                    if(typeof renderCertificates === 'function') renderCertificates();
-                }
-            });
-
-            window.onSnapshot(window.doc(window.db, "portfolio", "addedSkills"), (docSnap) => {
-                addedSkills = docSnap.exists() ? (docSnap.data().data || []) : [];
-                const grid = document.querySelector(".skills-grid");
-                if(grid) {
-                grid.innerHTML = "";
-                addedSkills.forEach((skill, index) => appendSkillToGrid(skill, index));
-                }
-            });
-
-            window.onSnapshot(window.doc(window.db, "portfolio", "addedProjects"), (docSnap) => {
-                addedProjects = docSnap.exists() ? (docSnap.data().data || []) : [];
-                const grid = document.querySelector(".projects-grid");
-                if(grid) {
-                grid.innerHTML = "";
-                addedProjects.forEach((proj, index) => appendProjToGrid(proj, index));
-                }
-            });
-
-            window.onSnapshot(window.doc(window.db, "portfolio", "addedExperience"), (docSnap) => {
-                addedExperience = docSnap.exists() ? (docSnap.data().data || []) : [];
-                const timeline = document.querySelector(".timeline");
-                if(timeline) {
-                timeline.innerHTML = "";
-                addedExperience.forEach((exp, index) => appendExpToTimeline(exp, index));
-                }
-            });
-        }
-
-        if (window.firebaseInitialized) {
-            initScript();
-        } else {
-            window.addEventListener('firebaseReady', initScript);
-        }
-
-
-
-
-
-
-
-/* ==========================================
-   CONTACT FORM FUNCTION (SILENT BACKEND)
-   ========================================== */
-async function sendContactEmail(e) {
-    e.preventDefault();
-    const form = e.target;
-    const btn = form.querySelector(".contact-submit-btn");
-    
-    // Change button state to sending
-    const originalText = btn.innerText;
-    btn.innerText = "Sending...";
-    btn.disabled = true;
-
-    // Package the form data using standard HTML5 FormData
-    const formData = new FormData(form);
-    
-    // Add Web3Forms access key
-    formData.append("access_key", "2c1d01f9-54f6-4ef3-b495-9ef55d1003bd");
-    formData.append("subject", "New Portfolio Contact");
-
-    try {
-        const response = await fetch("https://api.web3forms.com/submit", {
-            method: "POST",
-            body: formData
-        });
-        
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-            alert("✅ Message sent successfully!");
-            form.reset();
-        } else {
-            alert("❌ Failed to send message: " + (data.message || "Unknown error"));
-        }
-    } catch(error) {
-        console.error(error);
-        alert("❌ Error sending message. Check your internet connection.");
-    } finally {
-        btn.innerText = originalText;
-        btn.disabled = false;
-    }
-}
-
-// ==========================================
-// DYNAMIC APPENDS FOR SKILLS & PROJECTS
-// ==========================================
-
-// Load any previously added items and append them to DOM
-let addedSkills = [];;
-let addedProjects = [];;
-
-function appendSkillToGrid(skill, index) {
-    const grid = document.querySelector('.skills-grid');
-    if (!grid) return;
-    const div = document.createElement('div');
-    div.className = 'glass-card skill-card dynamic-added';
-    // Ensure relative positioning for absolute delete button
-    div.style.position = 'relative';
-    
-    div.innerHTML = `
-        <button class="admin-delete-btn" style="display:${typeof editMode !== 'undefined' && editMode ? 'block' : 'none'}" onclick="deleteDynamic('skill', ${index})"><i class="fas fa-trash"></i></button>
-        <div class="icon-wrapper"><i class="fas ${skill.icon}"></i></div>
-        <h3 class="editable">${skill.title}</h3>
-        <p class="editable">${skill.desc}</p>
-    `;
-    grid.appendChild(div);
-}
-
-function appendProjectToContainer(proj, index) {
-    const container = document.querySelector('.project-container');
-    if (!container) return;
-    const div = document.createElement('div');
-    div.className = 'project-card dynamic-added';
-    div.style.position = 'relative';
-    
-    let tagsHtml = '';
-    if (proj.tags) {
-        tagsHtml = '<div class="tags">' + 
-                   proj.tags.split(',').map(t => `<span>${t.trim()}</span>`).join('') + 
-                   '</div>';
-    }
-
-    div.innerHTML = `
-        <button class="admin-delete-btn" style="display:${typeof editMode !== 'undefined' && editMode ? 'block' : 'none'}" onclick="deleteDynamic('project', ${index})"><i class="fas fa-trash"></i></button>
-        <div class="project-icon"><i class="fas ${proj.icon}"></i></div>
-        <h3 class="editable">${proj.title}</h3>
-        <p class="editable">${proj.desc}</p>
-        ${tagsHtml}
-    `;
-    container.appendChild(div);
-}
-
-// Global Delete Handler for Dynamic Items
-function deleteDynamic(type, index) {
-    if (!confirm('Are you sure you want to delete this added item?')) return;
-    
-    if (type === 'skill') {
-        addedSkills.splice(index, 1);
-        if (window.db) window.setDoc(window.doc(window.db, "portfolio", "addedSkills"), { data: addedSkills });
-        document.querySelectorAll('.skill-card.dynamic-added').forEach(e => e.remove());
-        addedSkills.forEach((sk, idx) => appendSkillToGrid(sk, idx));
-    } else if (type === 'project') {
-        addedProjects.splice(index, 1);
-        if (window.db) window.setDoc(window.doc(window.db, "portfolio", "addedProjects"), { data: addedProjects });
-        document.querySelectorAll('.project-card.dynamic-added').forEach(e => e.remove());
-        addedProjects.forEach((p, idx) => appendProjectToContainer(p, idx));
-    } else if (type === 'experience') {
-        addedExperience.splice(index, 1);
-        if (window.db) window.setDoc(window.doc(window.db, "portfolio", "addedExperience"), { data: addedExperience });
-        document.querySelectorAll('.timeline-item.dynamic-added').forEach(e => e.remove());
-        addedExperience.forEach((ex, idx) => appendExpToTimeline(ex, idx));
-    }
-}
-
-// Initial appends are handled by Firebase onSnapshot listener above.
-
-// Modals
-function openSkillModal() {
-    document.getElementById('skillModal').style.display = 'flex';
-}
 function closeSkillModal() {
     document.getElementById('skillModal').style.display = 'none';
 }

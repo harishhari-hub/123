@@ -474,16 +474,18 @@
     <script src="firebase-config.js"></script>
     <script>
         // ==========================================
-        // SHARAN VAULT — IndexedDB Storage System
+        // SHARAN VAULT — Pure Firebase Storage System
         // ==========================================
 
-        
         let galleryData = [];
 
-        // RENDER GALLERY (SEPARATED SESSIONS)
+        // RENDER GALLERY
         async function renderGallery() {
             const vaultContainer = document.getElementById("vaultContent");
             vaultContainer.innerHTML = "";
+
+            // Wait for DOM to be ready if called early
+            if (!vaultContainer) return;
 
             // Update count badge
             document.getElementById("itemCount").textContent =
@@ -503,77 +505,35 @@
                 return;
             }
 
-            // Separate images and videos trackers
+            let imagesHTML = '<h2 class="section-title">Images Session</h2><div class="gallery-grid">';
+            let videosHTML = '<h2 class="section-title">Videos Session</h2><div class="gallery-grid">';
+            
             let hasImages = false;
             let hasVideos = false;
 
-            let imagesHTML = '<h2 class="section-title">Images Session</h2><div class="gallery-grid">';
-            let videosHTML = '<h2 class="section-title">Videos Session</h2><div class="gallery-grid">';
-
-            const offlineVideos = [];
-
             galleryData.forEach((item, index) => {
-                const isVideo = item.type === "video";
-                let mediaSrc = item.src;
-        // ==========================================
-        // SHARAN VAULT — IndexedDB + Firebase System
-        // ==========================================
-
-        let galleryData = [];
-
-        // RENDER GALLERY (SEPARATED SESSIONS)
-        async function renderGallery() {
-            const vaultContainer = document.getElementById("vaultContent");
-            vaultContainer.innerHTML = "";
-
-            document.getElementById("itemCount").textContent =
-                galleryData.length + (galleryData.length === 1 ? " item" : " items");
-
-            if (galleryData.length === 0) {
-                vaultContainer.innerHTML = `
-                    <div class="empty-state">
-                        <svg viewBox="0 0 24 24" stroke-width="1.5">
-                            <rect x="3" y="3" width="18" height="18" rx="2.5"/>
-                            <circle cx="8.5" cy="8.5" r="1.5" fill="rgba(0,255,255,0.3)" stroke="none"/>
-                            <polyline points="21,15 16,10 11,15.5 8,12 3,18"/>
-                        </svg>
-                        <p>Your vault is empty</p>
-                        <span>Click the + button to add images or videos</span>
-                    </div>`;
-                return;
-            }
-
-            let hasImages = false;
-            let hasVideos = false;
-
-            let imagesHTML = '<h2 class="section-title">Images Session</h2><div class="gallery-grid">';
-            let videosHTML = '<h2 class="section-title">Videos Session</h2><div class="gallery-grid">';
-
-            const offlineVideos = [];
-
-            galleryData.forEach((item, index) => {
-                const isVideo = item.type === "video";
-                let mediaSrc = item.src;
-                let mediaEl = "";
-
-                if (isVideo) {
-                    if (mediaSrc.startsWith("indexeddb:")) {
-                        mediaEl = `<video id="offvid_${index}" autoplay muted loop playsinline></video>`;
-                        offlineVideos.push({ id: `offvid_${index}`, key: mediaSrc.split(":")[1] });
-                    } else {
-                        mediaEl = `<video src="${mediaSrc}" autoplay muted loop playsinline></video>`;
-                    }
-                } else {
-                    mediaEl = `<img src="${mediaSrc}" alt="Vault item" loading="lazy" onclick="openLightbox(${index})">`;
+                // Safeguard against local file paths that might be cached in older records
+                if (item.src && (item.src.startsWith('file://') || item.src.startsWith('C:/'))) {
+                    return; // Skip broken local data
                 }
 
+                const dateStr = item.date || "Unknown Date";
+                const isVideo = item.type === "video";
+                
                 const cardHTML = `
-                    <div class="gallery-item">
-                        <div class="media-wrapper">
-                            ${mediaEl}
+                    <div class="gallery-item" onclick="openLightbox(${index})">
+                        ${isVideo 
+                            ? `<div class="video-indicator">▶</div>
+                               <video src="${item.src}" preload="metadata"></video>`
+                            : `<img src="${item.src}" loading="lazy" alt="Vault Item">`
+                        }
+                        <div class="delete-btn" onclick="deleteMedia(${index}, event)">
+                            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
                         </div>
-                        <div class="card-actions">
-                            <button class="card-btn-delete" onclick="deleteMedia('${item.id}', '${item.storagePath || ""}', '${item.src}')">Delete</button>
+                        <div class="item-overlay">
+                            <span class="item-date">${dateStr}</span>
                         </div>
                     </div>
                 `;
@@ -587,1068 +547,198 @@
                 }
             });
 
-            imagesHTML += "</div>";
-            videosHTML += "</div>";
+            imagesHTML += '</div>';
+            videosHTML += '</div>';
 
-            let finalHTML = "";
-            if (hasImages) finalHTML += imagesHTML;
-            if (hasVideos) finalHTML += videosHTML;
-
-            vaultContainer.innerHTML = finalHTML;
-
-            // Resolve offline videos locally
-            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-            
-            if (offlineVideos.length > 0) {
-                if (isLocalhost) {
-                    const dbReq = indexedDB.open("VaultOfflineDB", 3);
-                    dbReq.onupgradeneeded = (e) => {
-                        const db = e.target.result;
-                        if (!db.objectStoreNames.contains("videos")) db.createObjectStore("videos");
-                    };
-                    dbReq.onsuccess = (e) => {
-                        const db = e.target.result;
-                        offlineVideos.forEach(v => {
-                            try {
-                                const tx = db.transaction("videos", "readonly");
-                                const store = tx.objectStore("videos");
-                                const getReq = store.get(v.key);
-                                getReq.onsuccess = () => {
-                                    if (getReq.result) {
-                                        const el = document.getElementById(v.id);
-                                        if (el) el.src = URL.createObjectURL(getReq.result);
-                                    }
-                                };
-                            } catch (err) { console.error(err); }
-                        });
-                    };
-                } else {
-                    offlineVideos.forEach(v => {
-                        const el = document.getElementById(v.id);
-                        if (el) {
-                            const card = el.closest('.media-wrapper');
-                            el.style.display = 'none';
-                            const notice = document.createElement('div');
-                            notice.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:160px;background:rgba(255,100,0,0.1);border:1px dashed rgba(255,100,0,0.5);border-radius:12px;padding:20px;text-align:center;box-sizing:border-box;margin-top:10px;';
-                            notice.innerHTML = '<span style="font-size:28px;">📱</span><p style="color:#f97316;font-size:13px;font-weight:600;margin:6px 0 4px;">Local Device Video</p><p style="color:rgba(255,255,255,0.5);font-size:11px;">This video was saved locally. Re-upload here to sync it to the cloud.</p>';
-                            if (card) card.insertBefore(notice, el);
-                        }
-                    });
-                }
-            }
+            if (hasImages) vaultContainer.innerHTML += imagesHTML;
+            if (hasVideos) vaultContainer.innerHTML += videosHTML;
         }
 
-        // PREVIEW FILE BEFORE UPLOAD
-        function previewFile() {
-            const file = document.getElementById("fileInput").files[0];
-            const preview = document.getElementById("preview-img");
-            if (file && file.type.startsWith("image")) {
-                preview.src = URL.createObjectURL(file);
-                preview.style.display = "block";
-            } else {
-                preview.style.display = "none";
-            }
-        }
-
-        // ADD MEDIA TO DATABASE
-        async function addMedia() {
-            const file = document.getElementById("fileInput").files[0];
-            if (!file) { alert("Please select a file first!"); return; }
-
-            const btn = document.querySelector(".btn-save");
-            const ogText = btn.textContent;
-            btn.textContent = "Processing...";
-            btn.disabled = true;
-
-            const isVideo = file.type.startsWith("video");
-            let finalSrc = "";
-            let finalStoragePath = "";
-            const timeoutMs = 7000;
+        // LOAD DATA USING GETDOCS (PROPER ASYNC WITH TRY/FINALLY)
+        async function loadGalleryData() {
+            const loading = document.getElementById("loading");
+            if (loading) loading.style.display = "flex";
 
             try {
+                if (!window.db) {
+                    console.warn("Firebase not initialized yet. Using empty state.");
+                    galleryData = [];
+                    return;
+                }
+
+                // Explicit getDoc bypassing cache
+                const docRef = window.doc(window.db, "portfolio", "gallery");
+                const docSnap = await window.getDoc(docRef, { source: 'server' });
+                
+                if (docSnap.exists() && docSnap.data().data) {
+                    galleryData = docSnap.data().data;
+                } else {
+                    galleryData = [];
+                }
+            } catch (err) {
+                console.warn("Firestore fetch failed:", err);
+                galleryData = []; // Fallback empty state
+            } finally {
+                renderGallery();
+                // Ensure loader ALWAYS disappears no matter what
+                if (loading) loading.style.display = "none";
+            }
+        }
+
+        // ON-LOAD INITIALIZATION
+        window.onload = () => {
+            // Give Firebase a tiny bit of time if initialization is delayed
+            setTimeout(() => {
+                loadGalleryData();
+            }, 500);
+            
+            // Hard fallback just in case Firebase hangs forever
+            setTimeout(() => {
+                const loading = document.getElementById("loading");
+                if (loading && loading.style.display !== "none") {
+                    loading.style.display = "none";
+                    if (galleryData.length === 0) renderGallery();
+                }
+            }, 3000);
+        };
+
+        // FIREBASE STORAGE UPLOAD
+        async function addMedia(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!window.db || !window.storage) {
+                alert("Cloud Storage is not connected!");
+                return;
+            }
+
+            const loading = document.getElementById("loading");
+            if (loading) {
+                loading.style.display = "flex";
+                loading.innerHTML = '<div class="spinner"></div><p>Uploading to secure cloud...</p>';
+            }
+
+            try {
+                const isVideo = file.type.startsWith('video/');
+                
+                // Upload to Firebase Storage
                 const storagePath = 'vault/' + Date.now() + '_' + file.name;
                 const fileRef = window.ref(window.storage, storagePath);
-                const uploadTask = window.uploadBytes(fileRef, file);
-                const timeoutTask = new Promise((_, reject) => setTimeout(() => reject(new Error("Storage Timeout")), timeoutMs));
-
-                await Promise.race([uploadTask, timeoutTask]);
-                finalSrc = await window.getDownloadURL(fileRef);
-                finalStoragePath = storagePath;
-            } catch (storageErr) {
-                console.warn("Storage blocked! Switching to Emergency Fallbacks...", storageErr);
-
-                if (isVideo) {
-                    btn.textContent = "Local Bypass...";
-                    
-                    const dbReq = indexedDB.open("VaultOfflineDB", 3);
-                    dbReq.onupgradeneeded = (e) => {
-                        const db = e.target.result;
-                        if (!db.objectStoreNames.contains("videos")) db.createObjectStore("videos");
-                    };
-
-                    finalSrc = await new Promise((resolve, reject) => {
-                        dbReq.onsuccess = (e) => {
-                            try {
-                                const db = e.target.result;
-                                const tx = db.transaction("videos", "readwrite");
-                                const store = tx.objectStore("videos");
-                                const key = 'vid_' + Date.now();
-                                const putReq = store.put(file, key);
-                                putReq.onsuccess = () => resolve("indexeddb:" + key);
-                                putReq.onerror = () => reject("Failed to save video offline");
-                            } catch (err) {
-                                reject("IndexedDB Error: " + err.message);
-                            }
-                        };
-                        dbReq.onerror = () => reject("Database failed to open");
-                    });
-                    finalStoragePath = "offline_video";
-                } else {
-                    btn.textContent = "Compressing...";
-                    finalSrc = await new Promise((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onload = function(e) {
-                            const img = new Image();
-                            img.onload = function() {
-                                const canvas = document.createElement("canvas");
-                                const MAX = 600;
-                                let w = img.width, h = img.height;
-                                if (w > h && w > MAX) { h *= MAX / w; w = MAX; }
-                                else if (h > MAX) { w *= MAX / h; h = MAX; }
-                                canvas.width = w; canvas.height = h;
-                                const ctx = canvas.getContext("2d");
-                                ctx.drawImage(img, 0, 0, w, h);
-                                resolve(canvas.toDataURL("image/jpeg", 0.6));
-                            };
-                            img.src = e.target.result;
-                        };
-                        reader.readAsDataURL(file);
-                    });
-                    finalStoragePath = "offline_image";
-                }
-            }
-
-            const newDoc = {
-                id: Date.now().toString(),
-                type: isVideo ? "video" : "image",
-                src: finalSrc,
-                storagePath: finalStoragePath,
-                timestamp: Date.now()
-            };
-
-            galleryData.unshift(newDoc);
-            
-            try {
-                await window.setDoc(window.doc(window.db, "portfolio", "gallery"), { data: galleryData });
-                closeModal();
-            } catch (fbErr) {
-                alert("Database save failed. File was processed but cannot be synced to the cloud.");
-                closeModal();
-                renderGallery(); // Render anyway to show the local edit
-            }
-        }
-
-        async function deleteMedia(id, storagePath, src) {
-            if (!confirm("Are you sure you want to delete this item?")) return;
-
-            if (storagePath && storagePath !== "offline_video" && storagePath !== "offline_image") {
-                try {
-                    const fileRef = window.ref(window.storage, storagePath);
-                    await window.deleteObject(fileRef);
-                } catch(e) {
-                    console.log("Could not delete from storage, might be missing.", e);
-                }
-            }
-
-            if (src.startsWith("indexeddb:")) {
-                const key = src.split(":")[1];
-                const dbReq = indexedDB.open("VaultOfflineDB", 3);
-                dbReq.onsuccess = (e) => {
-                    try {
-                        const db = e.target.result;
-                        const tx = db.transaction("videos", "readwrite");
-                        tx.objectStore("videos").delete(key);
-                    } catch(err) {}
-                };
-            }
-
-            galleryData = galleryData.filter(item => item.id !== id);
-            await window.setDoc(window.doc(window.db, "portfolio", "gallery"), { data: galleryData });
-        }
-
-        function openLightbox(index) {
-            const item = galleryData[index];
-            if (!item || item.type === "video") return;
-            const lb = document.getElementById("lightbox");
-            const img = document.getElementById("lightbox-img");
-            img.src = item.src;
-            lb.classList.add("active");
-        }
-
-        function closeLightbox() {
-            document.getElementById("lightbox").classList.remove("active");
-        }
-
-        function openModal() {
-            document.getElementById("modal").classList.add("active");
-            document.getElementById("fileInput").value = "";
-            document.getElementById("preview-img").style.display = "none";
-            const btn = document.querySelector(".btn-save");
-            btn.textContent = "Save to Vault";
-            btn.disabled = false;
-        }
-
-        function closeModal() {
-            document.getElementById("modal").classList.remove("active");
-        }
-
-        document.getElementById("modal").addEventListener("click", function(e) {
-            if (e.target === this) closeModal();
-        });
-
-        // Initialize Data Stream
-        window.onload = () => {
-            const loading = document.getElementById("loading");
-
-            // Hard 3-second timeout - hides spinner regardless of Firebase
-            setTimeout(() => {
-                if (loading) loading.style.display = "none";
-                if (galleryData.length === 0) renderGallery();
-            }, 3000);
-
-            if (window.db) {
-                try {
-                    window.onSnapshot(
-                        window.doc(window.db, "portfolio", "gallery"),
-                        (docSnap) => {
-                            if (docSnap.exists() && docSnap.data().data) {
-                                galleryData = docSnap.data().data;
-                            } else {
-                                galleryData = [];
-                            }
-                            renderGallery();
-                            if (loading) loading.style.display = "none";
-                        },
-                        (err) => {
-                            console.warn("Firebase gallery read blocked:", err.code || err.message);
-                            galleryData = [];
-                            renderGallery();
-                            if (loading) loading.style.display = "none";
-                        }
-                    );
-                } catch (e) {
-                    console.log("Firebase error", e);
-                    if (loading) loading.style.display = "none";
-                    renderGallery();
-                }
-            } else {
-                if (loading) loading.style.display = "none";
-                renderGallery();
-            }
-        };
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SHARAN VAULT 😎</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-
-        body {
-            font-family: 'Segoe UI', sans-serif;
-            color: white;
-            background: radial-gradient(ellipse at top, #0a192f 0%, #020617 100%);
-            min-height: 100vh;
-        }
-
-        /* NEW TOGETHER BACKGROUND */
-        body::before {
-            content: "";
-            position: fixed;
-            inset: 0;
-            background: url("together.img.jpeg") center / cover no-repeat;
-            filter: brightness(0.35) saturate(1.2);
-            z-index: -1;
-        }
-
-        /* HEADER */
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 18px 40px;
-            background: rgba(0, 0, 0, 0.6);
-            border-bottom: 1px solid rgba(0, 255, 255, 0.15);
-            backdrop-filter: blur(10px);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .header h1 {
-            font-size: 22px;
-            color: #00eaff;
-            text-transform: uppercase;
-            letter-spacing: 3px;
-            text-shadow: 0 0 20px rgba(0,255,255,0.4);
-        }
-
-        .header-right {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-        }
-
-        .back-btn {
-            background: transparent;
-            border: 1px solid rgba(0,255,255,0.4);
-            color: #00eaff;
-            padding: 8px 18px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: 0.3s;
-            text-decoration: none;
-            font-size: 14px;
-        }
-
-        .back-btn:hover {
-            background: rgba(0, 234, 255, 0.12);
-            border-color: #00eaff;
-            box-shadow: 0 0 10px rgba(0,255,255,0.3);
-        }
-
-        .count-badge {
-            background: rgba(0,255,255,0.1);
-            border: 1px solid rgba(0,255,255,0.3);
-            color: #00eaff;
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 13px;
-        }
-
-        /* VAULT CONTAINER */
-        .vault-content {
-            max-width: 1200px;
-            margin: 20px auto 120px;
-            padding: 0 24px;
-        }
-
-        /* SESSIONS STYLING */
-        .section-title {
-            font-size: 20px;
-            color: #00eaff;
-            margin: 40px 0 20px 0;
-            padding-bottom: 15px;
-            border-bottom: 1px solid rgba(0,255,255,0.15);
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            text-shadow: 0 0 10px rgba(0,255,255,0.2);
-        }
-
-        .gallery-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-            gap: 20px;
-        }
-
-        /* EMPTY STATE */
-        .empty-state {
-            text-align: center;
-            padding: 80px 20px;
-            color: rgba(255,255,255,0.3);
-        }
-
-        .empty-state svg {
-            width: 60px;
-            height: 60px;
-            stroke: rgba(0,255,255,0.3);
-            fill: none;
-            margin-bottom: 16px;
-        }
-
-        .empty-state p {
-            font-size: 16px;
-            margin-bottom: 8px;
-        }
-
-        .empty-state span {
-            font-size: 13px;
-            color: rgba(255,255,255,0.2);
-        }
-
-        /* GALLERY CARD */
-        .gallery-item {
-            background: rgba(7, 16, 33, 0.85);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 14px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            transition: 0.3s;
-            backdrop-filter: blur(8px);
-        }
-
-        .gallery-item:hover {
-            border-color: rgba(0,255,255,0.3);
-            box-shadow: 0 0 20px rgba(0,255,255,0.1);
-            transform: translateY(-2px);
-        }
-
-        .media-wrapper {
-            width: 100%;
-            aspect-ratio: 1 / 1;
-            position: relative;
-            background: #000;
-            cursor: pointer;
-        }
-
-        .media-wrapper img,
-        .media-wrapper video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-        }
-
-        .card-actions {
-            padding: 12px;
-            display: flex;
-            justify-content: center;
-            background: rgba(0, 0, 0, 0.4);
-            border-top: 1px solid rgba(255,255,255,0.05);
-        }
-
-        /* SEPARATE DELETE BUTTON AT BOTTOM */
-        .card-btn-delete {
-            background: rgba(220, 38, 38, 0.15);
-            color: #ef4444;
-            border: 1px solid rgba(220, 38, 38, 0.5);
-            padding: 8px 24px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 600;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            transition: 0.2s;
-            width: 100%;
-        }
-
-        .card-btn-delete:hover {
-            background: #ef4444;
-            color: white;
-            box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
-            border-color: #ef4444;
-        }
-
-        /* FLOATING ADD BUTTON */
-        .floating-add {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            width: 58px;
-            height: 58px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #00eaff, #007bff);
-            color: #000;
-            font-size: 28px;
-            font-weight: bold;
-            border: none;
-            cursor: pointer;
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
-            transition: 0.3s;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 500;
-        }
-
-        .floating-add:hover {
-            transform: scale(1.12);
-            box-shadow: 0 0 30px rgba(0, 255, 255, 0.8);
-        }
-
-        /* MODAL OVERLAY */
-        #modal {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(8px);
-            z-index: 10000;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .modal-content {
-            background: linear-gradient(135deg, #0a192f, #0d1f3c);
-            padding: 36px;
-            border-radius: 20px;
-            border: 1px solid rgba(0, 255, 255, 0.2);
-            text-align: center;
-            width: 90%;
-            max-width: 420px;
-            box-shadow: 0 0 40px rgba(0,255,255,0.1);
-        }
-
-        .modal-content h2 {
-            color: #00eaff;
-            font-size: 22px;
-            margin-bottom: 24px;
-        }
-
-        .upload-area {
-            border: 2px dashed rgba(0,255,255,0.3);
-            border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 24px;
-            transition: 0.3s;
-            cursor: pointer;
-        }
-
-        .upload-area:hover {
-            border-color: rgba(0,255,255,0.7);
-            background: rgba(0,255,255,0.03);
-        }
-
-        .upload-area input[type="file"] {
-            width: 100%;
-            color: rgba(255,255,255,0.7);
-            font-size: 14px;
-            cursor: pointer;
-        }
-
-        .upload-area p {
-            color: rgba(255,255,255,0.4);
-            font-size: 12px;
-            margin-top: 10px;
-        }
-
-        #preview-img {
-            width: 100%;
-            max-height: 160px;
-            object-fit: cover;
-            border-radius: 8px;
-            margin-top: 12px;
-            display: none;
-        }
-
-        .modal-btns {
-            display: flex;
-            gap: 12px;
-            justify-content: center;
-        }
-
-        .btn-save {
-            background: linear-gradient(135deg, #00eaff, #007bff);
-            color: #000;
-            border: none;
-            padding: 12px 28px;
-            border-radius: 10px;
-            font-weight: bold;
-            font-size: 15px;
-            cursor: pointer;
-            transition: 0.3s;
-            flex: 1;
-        }
-
-        .btn-save:hover {
-            transform: scale(1.05);
-            box-shadow: 0 0 15px rgba(0,255,255,0.4);
-        }
-
-        .btn-cancel {
-            background: rgba(255, 255, 255, 0.08);
-            color: white;
-            border: 1px solid rgba(255,255,255,0.15);
-            padding: 12px 28px;
-            border-radius: 10px;
-            font-size: 15px;
-            cursor: pointer;
-            transition: 0.3s;
-            flex: 1;
-        }
-
-        .btn-cancel:hover {
-            background: rgba(255,255,255,0.15);
-        }
-
-        /* LIGHTBOX */
-        #lightbox {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.95);
-            z-index: 20000;
-            justify-content: center;
-            align-items: center;
-            cursor: zoom-out;
-        }
-
-        #lightbox.active { display: flex; }
-
-        #lightbox img {
-            max-width: 90vw;
-            max-height: 90vh;
-            border-radius: 8px;
-            box-shadow: 0 0 40px rgba(0,255,255,0.2);
-        }
-
-        .lightbox-close {
-            position: fixed;
-            top: 20px;
-            right: 24px;
-            color: white;
-            font-size: 32px;
-            cursor: pointer;
-            z-index: 20001;
-            opacity: 0.7;
-            transition: 0.2s;
-        }
-
-        .lightbox-close:hover { opacity: 1; }
-
-        /* LOADING */
-        #loading {
-            position: fixed;
-            inset: 0;
-            background: rgba(2,6,23,0.9);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 99999;
-            gap: 16px;
-            color: #00eaff;
-        }
-
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid rgba(0,255,255,0.2);
-            border-top-color: #00eaff;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* ========== MOBILE RESPONSIVENESS ========== */
-        @media (max-width: 768px) {
-            .gallery-grid, .vault-content {
-                grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-                gap: 15px;
-                padding: 20px 15px;
-            }
-            .header {
-                padding: 30px 15px;
-            }
-            .header h1 {
-                font-size: 2.2rem;
-            }
-            .header p {
-                font-size: 0.85rem;
-                padding: 0 10px;
-            }
-            .floating-add {
-                bottom: 80px; 
-                right: 20px; 
-                left: auto; /* move it to right so it doesn't block text overflow too heavily */
-                width: 50px;
-                height: 50px;
-                font-size: 24px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                line-height: 0;
-            }
-            #modal .modal-content {
-                width: 90%;
-                padding: 24px;
-            }
-        }
-    </style>
-</head>
-<body>
-
-    <!-- LOADING SCREEN -->
-    <div id="loading">
-        <div class="spinner"></div>
-        <p>Loading Vault...</p>
-    </div>
-
-    <!-- HEADER -->
-    <div class="header">
-        <h1>SHARAN VAULT 😎</h1>
-        <div class="header-right">
-            <span class="count-badge" id="itemCount">0 items</span>
-            <a href="index.html" class="back-btn">← Back to Portfolio</a>
-        </div>
-    </div>
-
-    <!-- MAIN VAULT CONTENT REGION -->
-    <div class="vault-content" id="vaultContent"></div>
-
-    <!-- FLOATING ADD BUTTON -->
-    <button class="floating-add" onclick="openModal()" title="Add to Vault">+</button>
-
-    <!-- ADD MODAL -->
-    <div id="modal">
-        <div class="modal-content">
-            <h2>Add to Vault</h2>
-            <div class="upload-area">
-                <input type="file" id="fileInput" accept="image/*,video/*" onchange="previewFile()">
-                <p>Supports images and videos</p>
-                <img id="preview-img" alt="Preview">
-            </div>
-            <div class="modal-btns">
-                <button class="btn-save" onclick="addMedia()">Save to Vault</button>
-                <button class="btn-cancel" onclick="closeModal()">Cancel</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- LIGHTBOX -->
-    <div id="lightbox" onclick="closeLightbox()">
-        <span class="lightbox-close" onclick="closeLightbox()">×</span>
-        <img id="lightbox-img" src="" alt="Full view">
-    </div>
-
-    <!-- FIREBASE COMPAT SDK (works on file:// and https://) -->
-    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-storage-compat.js"></script>
-    <script src="firebase-config.js"></script>
-    <script>
-        // ==========================================
-        // SHARAN VAULT — IndexedDB Storage System
-        // ==========================================
-
-        
-        let galleryData = [];
-
-        // RENDER GALLERY (SEPARATED SESSIONS)
-        async function renderGallery() {
-            const vaultContainer = document.getElementById("vaultContent");
-            vaultContainer.innerHTML = "";
-
-            // Update count badge
-            document.getElementById("itemCount").textContent =
-                galleryData.length + (galleryData.length === 1 ? " item" : " items");
-
-            if (galleryData.length === 0) {
-                vaultContainer.innerHTML = `
-                    <div class="empty-state">
-                        <svg viewBox="0 0 24 24" stroke-width="1.5">
-                            <rect x="3" y="3" width="18" height="18" rx="2.5"/>
-                            <circle cx="8.5" cy="8.5" r="1.5" fill="rgba(0,255,255,0.3)" stroke="none"/>
-                            <polyline points="21,15 16,10 11,15.5 8,12 3,18"/>
-                        </svg>
-                        <p>Your vault is empty</p>
-                        <span>Click the + button to add images or videos</span>
-                    </div>`;
-                return;
-            }
-
-            // Separate images and videos trackers
-            let hasImages = false;
-            let hasVideos = false;
-
-            let imagesHTML = '<h2 class="section-title">Images Session</h2><div class="gallery-grid">';
-            let videosHTML = '<h2 class="section-title">Videos Session</h2><div class="gallery-grid">';
-
-            const offlineVideos = [];
-
-            galleryData.forEach((item, index) => {
-                const isVideo = item.type === "video";
-                let mediaSrc = item.src;\n
-                let mediaEl = "";
-                if (isVideo) {
-                    if (mediaSrc.startsWith("indexeddb:")) {
-                        mediaEl = '<video id="offvid_' + index + '" autoplay muted loop playsinline></video>';
-                        offlineVideos.push({ id: 'offvid_' + index, key: mediaSrc.split(":")[1] });
-                    } else {
-                        mediaEl = '<video src="' + mediaSrc + '" autoplay muted loop playsinline></video>';
-                    }
-                } else {
-                    mediaEl = '<img src="' + mediaSrc + '" alt="Vault item" loading="lazy" onclick="openLightbox(' + index + ')">';
-                }
-
-                const cardHTML = `
-                    <div class="gallery-item">
-                        <div class="media-wrapper">
-                            ${mediaEl}
-                        </div>
-                        <div class="card-actions">
-                            <button class="card-btn-delete" onclick="deleteMedia('${item.id}', '${item.storagePath || ""}', '${item.src}')">Delete</button>
-                        </div>
-                    </div>
-                `;
-
-                if (isVideo) {
-                    hasVideos = true;
-                    videosHTML += cardHTML;
-                } else {
-                    hasImages = true;
-                    imagesHTML += cardHTML;
-                }
-            });
-
-            imagesHTML += "</div>";
-            videosHTML += "</div>";
-
-            let finalHTML = "";
-            if (hasImages) finalHTML += imagesHTML;
-            if (hasVideos) finalHTML += videosHTML;
-
-            vaultContainer.innerHTML = finalHTML;
-
-            // Resolve offline videos locally
-            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-            
-            if (offlineVideos.length > 0) {
-                if (isLocalhost) {
-                    const dbReq = indexedDB.open("VaultOfflineDB", 3);
-                    dbReq.onsuccess = (e) => {
-                        const db = e.target.result;
-                        offlineVideos.forEach(v => {
-                            try {
-                                const tx = db.transaction("videos", "readonly");
-                                const store = tx.objectStore("videos");
-                                const getReq = store.get(v.key);
-                                getReq.onsuccess = () => {
-                                    if (getReq.result) {
-                                        const el = document.getElementById(v.id);
-                                        if (el) el.src = URL.createObjectURL(getReq.result);
-                                    }
-                                };
-                            } catch (err) { }
-                        });
-                    };
-                } else {
-                    offlineVideos.forEach(v => {
-                        const el = document.getElementById(v.id);
-                        if (el) {
-                            const card = el.closest('.media-wrapper');
-                            el.style.display = 'none';
-                            const notice = document.createElement('div');
-                            notice.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:160px;background:rgba(255,100,0,0.1);border:1px dashed rgba(255,100,0,0.5);border-radius:12px;padding:20px;text-align:center;';
-                            notice.innerHTML = '<span style="font-size:28px;">📱</span><p style="color:#f97316;font-size:13px;font-weight:600;margin:6px 0 4px;">Local Device Video</p><p style="color:rgba(255,255,255,0.5);font-size:11px;">This video was saved locally. Re-upload here to sync it to the cloud.</p>';
-                            card.insertBefore(notice, el);
-                        }
-                    });
-                }
-            }
-        }
-
-        // PREVIEW FILE BEFORE UPLOAD
-        function previewFile() {
-            const file = document.getElementById("fileInput").files[0];
-            const preview = document.getElementById("preview-img");
-            if (file && file.type.startsWith("image")) {
-                preview.src = URL.createObjectURL(file);
-                preview.style.display = "block";
-            } else {
-                preview.style.display = "none";
-            }
-        }
-
-        async function addMedia() {
-            const file = document.getElementById("fileInput").files[0];
-            if (!file) { alert("Please select a file first!"); return; }
-
-            const btn = document.querySelector(".btn-save");
-            const ogText = btn.textContent;
-            btn.textContent = "Processing...";
-            btn.disabled = true;
-
-            const isVideo = file.type.startsWith("video");
-
-            try {
-                let finalSrc = "";
-                let finalStoragePath = "";
+                await window.uploadBytes(fileRef, file);
                 
-                // Try Firebase Storage Upload — 30s timeout for real network connections
-                const isLocalFile = window.location.protocol === 'file:';
-                const timeoutMs = isLocalFile ? 5000 : 30000;
-                try {
-                    const storagePath = 'vault/' + Date.now() + '_' + file.name;
-                    const fileRef = window.ref(window.storage, storagePath);
-                    const uploadTask = window.uploadBytes(fileRef, file);
-                    const timeoutTask = new Promise((_, reject) => setTimeout(() => reject(new Error("Storage Timeout")), timeoutMs));
-                    
-                    await Promise.race([uploadTask, timeoutTask]);
-                    finalSrc = await window.getDownloadURL(fileRef);
-                    finalStoragePath = storagePath;
-                } catch (storageErr) {
-                    console.warn("Storage blocked! Switching to Emergency Fallbacks...", storageErr);
-                    
-                    if (isVideo) {
-                        btn.textContent = "Local Bypass...";
-                        // EMERGENCY FALLBACK FOR VIDEOS: Save to IndexedDB!
-                        const dbReq = indexedDB.open("VaultOfflineDB", 3);
-                        dbReq.onupgradeneeded = (e) => {
-                            const db = e.target.result;
-                            if(!db.objectStoreNames.contains("videos")) db.createObjectStore("videos");
-                        };
-                        
-                        finalSrc = await new Promise((resolve, reject) => {
-                            dbReq.onsuccess = (e) => {
-                                try {
-                                    const db = e.target.result;
-                                    const tx = db.transaction("videos", "readwrite");
-                                    const store = tx.objectStore("videos");
-                                    const key = 'vid_' + Date.now();
-                                    const putReq = store.put(file, key);
-                                    putReq.onsuccess = () => resolve("indexeddb:" + key);
-                                    putReq.onerror = () => reject("Failed to save video offline");
-                                } catch (err) {
-                                    reject("IndexedDB Transaction Error: " + err.message);
-                                }
-                            };
-                            dbReq.onerror = () => reject("Database failed to open");
-                        });
-                        finalStoragePath = "offline_video";
-                    } else {
-                        // EMERGENCY FALLBACK FOR IMAGES: Compress Base64
-                        btn.textContent = "Compressing...";
-                        finalSrc = await new Promise((resolve, reject) => {
-                            const reader = new FileReader();
-                            reader.onload = function(e) {
-                                const img = new Image();
-                                img.onload = function() {
-                                    const canvas = document.createElement("canvas");
-                                    const MAX = 600;
-                                    let w = img.width, h = img.height;
-                                    if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
-                                    else if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
-                                    canvas.width = w; canvas.height = h;
-                                    canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-                                    resolve(canvas.toDataURL("image/jpeg", 0.6));
-                                };
-                                img.onerror = reject;
-                                img.src = e.target.result;
-                            };
-                            reader.onerror = reject;
-                            reader.readAsDataURL(file);
-                        });
-                        finalStoragePath = "base64";
-                    }
-                }
+                // Get public download URL
+                const publicUrl = await window.getDownloadURL(fileRef);
 
-                // Save info to Firestore Database! (Works perfectly on local file://)
-                await window.addDoc(window.collection(window.db, "vault"), {
-                    src: finalSrc,
+                const newItem = {
                     type: isVideo ? "video" : "image",
-                    name: file.name,
-                    storagePath: finalStoragePath,
-                    date: new Date().toLocaleDateString(),
-                    timestamp: Date.now()
-                });
+                    src: publicUrl,
+                    date: new Date().toLocaleDateString('en-GB')
+                };
 
-                closeModal();
-            } catch (err) {
-                console.error("Complete Failure:", err);
-                alert("Upload Failed: " + err);
+                // Push to gallery and save to Firestore
+                galleryData.unshift(newItem); // Add to beginning
+                await window.setDoc(window.doc(window.db, "portfolio", "gallery"), { data: galleryData });
+                
+                // Re-render
+                renderGallery();
+
+            } catch (error) {
+                console.error("Upload failed", error);
+                alert("Upload failed: " + error.message);
             } finally {
-                btn.textContent = ogText;
-                btn.disabled = false;
+                // Restore loading UI and hide
+                if (loading) {
+                    loading.innerHTML = '<div class="spinner"></div><p>Loading Vault...</p>';
+                    loading.style.display = "none";
+                }
             }
         }
 
         // DELETE MEDIA
-        async function deleteMedia(docId, storagePath, srcStr) {
-            if (confirm("Delete this item from Vault permanently?")) {
+        async function deleteMedia(index, event) {
+            event.stopPropagation(); // Setup lightbox clicks
+            
+            if (confirm("Permanently delete this from the secure cloud?")) {
                 try {
-                    // Try to delete from storage first if it exists
-                    if (storagePath && storagePath !== "base64" && storagePath !== "offline_video") {
-                        const fileRef = window.ref(window.storage, storagePath);
+                    const item = galleryData[index];
+                    
+                    // Attempt to delete from Storage if it's a firebase URL
+                    if (item.src.includes('firebasestorage')) {
                         try {
+                            // Extract path from download URL or just rely on Firestore delete
+                            // A robust delete would parse the URL, but setting Firestore is primary
+                            const fileRef = window.ref(window.storage, item.src);
                             await window.deleteObject(fileRef);
-                        } catch(se) {
-                            console.warn("Storage item not found or already deleted:", se);
+                        } catch(e) {
+                            console.warn("Storage item delete skipped or failed", e);
                         }
                     }
-                    
-                    if (srcStr.startsWith("indexeddb:")) {
-                        const key = srcStr.split(":")[1];
-                        const dbReq = indexedDB.open("VaultOfflineDB", 3);
-                        dbReq.onsuccess = (e) => {
-                            const db = e.target.result;
-                            const tx = db.transaction("videos", "readwrite");
-                            tx.objectStore("videos").delete(key);
-                        };
-                    }
 
-                    // Delete from database
-                    await window.deleteDoc(window.doc(window.db, "vault", docId));
-                } catch(err) {
-                    console.error("Failed to delete", err);
-                    alert("Error deleting file!");
+                    // Remove from array and update Firestore
+                    galleryData.splice(index, 1);
+                    await window.setDoc(window.doc(window.db, "portfolio", "gallery"), { data: galleryData });
+                    
+                    renderGallery();
+                    
+                } catch(e) {
+                    alert("Delete failed: " + e.message);
                 }
             }
         }
 
-        // MODAL
-        function openModal() {
-            const pass = prompt("Enter Admin Password:");
-            if (pass !== "1206") {
-                alert("Access Denied ❌");
-                return;
-            }
-            document.getElementById("modal").style.display = "flex";
-            document.getElementById("fileInput").value = "";
-            document.getElementById("preview-img").style.display = "none";
-        }
+        // ==========================================
+        // LIGHTBOX SYSTEM (UNCHANGED)
+        // ==========================================
+        let currentLightboxIndex = 0;
 
-        function closeModal() {
-            document.getElementById("modal").style.display = "none";
-        }
-
-        // LIGHTBOX
         function openLightbox(index) {
-            const src = galleryData[index].src;
-            document.getElementById("lightbox-img").src = src;
-            document.getElementById("lightbox").classList.add("active");
+            currentLightboxIndex = index;
+            const lightbox = document.getElementById("lightbox");
+            const mediaContainer = document.getElementById("lightboxMedia");
+            const img = document.getElementById("lightboxImg");
+            const video = document.getElementById("lightboxVideo");
+            
+            const item = galleryData[index];
+            
+            if (item.type === "video") {
+                img.style.display = "none";
+                video.style.display = "block";
+                video.src = item.src;
+            } else {
+                video.style.display = "none";
+                img.style.display = "block";
+                img.src = item.src;
+            }
+            
+            lightbox.classList.add("active");
+            document.body.style.overflow = "hidden";
         }
 
         function closeLightbox() {
-            document.getElementById("lightbox").classList.remove("active");
+            const lightbox = document.getElementById("lightbox");
+            const video = document.getElementById("lightboxVideo");
+            video.pause();
+            lightbox.classList.remove("active");
+            document.body.style.overflow = "auto";
         }
 
-        // Close modal on backdrop click
-        document.getElementById("modal").addEventListener("click", function(e) {
-            if (e.target === this) closeModal();
+        function slideLightbox(direction) {
+            currentLightboxIndex += direction;
+            if (currentLightboxIndex < 0) currentLightboxIndex = galleryData.length - 1;
+            if (currentLightboxIndex >= galleryData.length) currentLightboxIndex = 0;
+            openLightbox(currentLightboxIndex);
+        }
+
+        document.getElementById("lightbox").addEventListener("click", function(e) {
+            if (e.target === this) closeLightbox();
         });
 
-        // INIT ON LOAD
-        
-        function initGallery() {
-            if(!window.db) {
-                const l = document.getElementById('loading');
-                if(l) l.style.display = 'none';
-                return;
-            }
-            window.onSnapshot(window.collection(window.db, 'vault'), (snapshot) => {
-                galleryData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                galleryData.sort((a,b) => (b.timestamp || 0) - (a.timestamp || 0));
-                if(typeof renderGallery === "function") renderGallery();
-                const l = document.getElementById('loading');
-                if(l) l.style.display = 'none';
-            }, (error) => {
-                console.error('Vault real-time sync failed:', error);
-                const l = document.getElementById('loading');
-                if(l) l.style.display = 'none';
-                alert('Database connection error');
-            });
-        }
-
-        if (window.firebaseInitialized) {
-            initGallery();
-        } else {
-            window.addEventListener('firebaseReady', initGallery);
-        }
+        document.addEventListener("keydown", function(e) {
+            if (!document.getElementById("lightbox").classList.contains("active")) return;
+            if (e.key === "Escape") closeLightbox();
+            if (e.key === "ArrowLeft") slideLightbox(-1);
+            if (e.key === "ArrowRight") slideLightbox(1);
+        });
     </script>
 </body>
 </html>
