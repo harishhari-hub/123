@@ -802,86 +802,79 @@ const DEFAULT_CERTIFICATES = [
 let certificates = [...DEFAULT_CERTIFICATES];
 let editId = null;
 
-// Load saved certificates - Pure Firebase sync (Collection Flow)
-async function loadCertsFromStorage() {
-  if (!window.db) {
-    certificates = [...DEFAULT_CERTIFICATES];
-    renderCertificates();
-    return;
-  }
+// Load saved certificates - Exact Snippet Integration
+async function loadCertificates() {
+  const container = document.getElementById("certGrid");
+  if (!container) return;
   
+  // Safe default load explicitly required by user layout constraints
+  if (!window.db) {
+     certificates = [...DEFAULT_CERTIFICATES];
+     renderCertificatesUI(container);
+     return;
+  }
+
+  container.innerHTML = "<p style='color:#00e5ff; text-align:center; grid-column:1/-1;'>Loading certificates from secure cloud...</p>";
+
   try {
     const querySnapshot = await window.getDocs(window.collection(window.db, "certificates"));
-    
-    // Only compile dynamic certificates from Firebase
+
     let firebaseCerts = [];
     querySnapshot.forEach((doc) => {
         firebaseCerts.push({ id: doc.id, ...doc.data() });
     });
 
-    // Merge static default certs with firebase uploaded certs
+    // Merge default and db certificates 
     certificates = [...DEFAULT_CERTIFICATES, ...firebaseCerts];
-    
-  } catch (err) {
-    console.warn("Firestore collection fetch failed, reverting to defaults:", err);
-    certificates = [...DEFAULT_CERTIFICATES];
-  } finally {
-    renderCertificates();
-  }
-}
 
-// Global update trigger when edits happen (not needed natively for Collections but serves as fallback interface)
-async function saveCertData() {
-    // Left empty because we use explicit addDoc/updateDoc in saveCert now.
-}
-
-/* RENDER */
-function renderCertificates() {
-  const grid = document.getElementById("certGrid");
-  if (!grid) return;
-
-  grid.innerHTML = "";
-
-  if (certificates.length === 0) {
-    grid.innerHTML = `<p style="color:rgba(255,255,255,0.4); text-align:center; grid-column:1/-1;">No certificates added yet.</p>`;
-    return;
-  }
-
-  certificates.forEach((c, index) => {
-    const imgSrc = c.image || "";
-    // Filter out cached local data paths
-    if (imgSrc.startsWith('file://') || imgSrc.startsWith('C:/')) {
-        return; 
+    if (certificates.length === 0) {
+      container.innerHTML = "<p style='color:rgba(255,255,255,0.4); text-align:center; grid-column:1/-1;'>No certificates found</p>";
+      return;
     }
 
-    // Pass the Firebase doc id to the delete function if it's not a default hardcoded statuc cert
-    const docIdArg = c.id ? `'${c.id}'` : 'null';
+    renderCertificatesUI(container);
 
-    const adminTools = editMode ? `
-      <button class="edit" onclick="openCertModal(${index})">Edit</button>
-      <button class="delete" onclick="deleteCert(${index}, ${docIdArg})">Delete</button>
-    ` : "";
-
-    grid.innerHTML += `
-      <div class="cert-card">
-        <div class="cert-img">
-          <img src="${imgSrc}" alt="${c.title}" loading="lazy"
-            onerror="this.onerror=null;this.style.display='none';this.parentElement.innerHTML+='<div style=\'display:flex;flex-direction:column;align-items:center;justify-content:center;height:160px;background:rgba(0,200,255,0.05);border:1px dashed rgba(0,200,255,0.3);border-radius:8px;padding:10px;\'><div style=\'font-size:40px;\'>🏅</div></div>'">
-        </div>
-        <div class="cert-content">
-          <h3>${c.title}</h3>
-          <span>${c.org}</span>
-          <p>${c.desc || "No description added"}</p>
-          <div class="cert-buttons">
-            <button class="view" onclick="openZoom(${index})">View</button>
-            <button class="dl" onclick="downloadCert(${index})">Download</button>
-            ${adminTools}
-          </div>
-        </div>
-      </div>
-    `;
-  });
+  } catch (err) {
+    console.error(err);
+    container.innerHTML = "<p style='color:red; text-align:center; grid-column:1/-1;'>Error loading certificates ❌</p>";
+  }
 }
+
+function renderCertificatesUI(container) {
+    container.innerHTML = "";
+    certificates.forEach((c, index) => {
+        const imgSrc = c.image || "";
+        if (imgSrc.startsWith('file://') || imgSrc.startsWith('C:/')) return;
+
+        const docIdArg = c.id ? `'${c.id}'` : 'null';
+        const adminTools = editMode ? `
+          <button class="edit" onclick="openCertModal(${index})">Edit</button>
+          <button class="delete" onclick="deleteCert(${index}, ${docIdArg})">Delete</button>
+        ` : "";
+
+        container.innerHTML += `
+          <div class="cert-card">
+            <div class="cert-img">
+              <img src="${imgSrc}" alt="${c.title}" loading="lazy"
+                onerror="this.onerror=null;this.style.display='none';this.parentElement.innerHTML+='<div style=\'display:flex;flex-direction:column;align-items:center;justify-content:center;height:160px;background:rgba(0,200,255,0.05);border:1px dashed rgba(0,200,255,0.3);border-radius:8px;padding:10px;\'><div style=\'font-size:40px;\'>🏅</div></div>'">
+            </div>
+            <div class="cert-content">
+              <h3>${c.title}</h3>
+              <span>${c.org}</span>
+              <p>${c.desc || "No description added"}</p>
+              <div class="cert-buttons">
+                <button class="view" onclick="openZoom(${index})">View</button>
+                <button class="dl" onclick="downloadCert(${index})">Download</button>
+                ${adminTools}
+              </div>
+            </div>
+          </div>
+        `;
+    });
+}
+
+// Global hook update
+async function saveCertData() { }
 
 /* ZOOM LIGHTBOX */
 let zoomLevel = 1;
@@ -925,6 +918,14 @@ document.addEventListener("DOMContentLoaded", () => {
       e.target.style.cursor = zoomLevel >= 3 ? "zoom-out" : "zoom-in";
     });
   }
+  
+  // MAP ADD CERTIFICATE BUTTON (MISSING FIX)
+  const addBtn = document.getElementById("addCertBtn");
+  if(addBtn) {
+      addBtn.onclick = () => {
+          document.getElementById("certModal").style.display = "flex";
+      };
+  }
 });
 
 /* DOWNLOAD */
@@ -942,16 +943,13 @@ async function deleteCert(index, docId) {
   if (confirm(`Permanently delete "${certificates[index].title}" from Cloud Storage?`)) {
     try {
         if (!docId) {
-             // Basic hardcoded static array filter if they choose to delete default certs locally
              certificates.splice(index, 1);
-             renderCertificates();
+             loadCertificates();
              return;
         }
-
-        // Strict doc deletion from Firebase
         await window.deleteDoc(window.doc(window.db, "certificates", docId));
         certificates.splice(index, 1);
-        renderCertificates();
+        loadCertificates();
         alert("Certificate removed from cloud.");
     } catch (e) {
         alert("Delete failed: " + e.message);
@@ -988,91 +986,69 @@ function closeCertModal() {
   document.getElementById("certModal").style.display = "none";
 }
 
-/* SAVE CERT — Direct Cloud Collection Upload */
-async function saveCert() {
-  const title = document.getElementById("certTitle").value.trim();
-  const org   = document.getElementById("certOrg").value.trim();
-  const desc  = document.getElementById("certDesc").value.trim();
-  const fileInput = document.getElementById("certImage");
-  const file  = fileInput.files[0];
+/* SAVE CERT — EXACT SNIPPET FLOW */
+async function saveCertificate() {
+  const title = document.getElementById("certTitle").value;
+  const org = document.getElementById("certOrg").value;
+  const desc = document.getElementById("certDesc").value;
+  const file = document.getElementById("certImage").files[0];
 
+  let docId = editId !== null ? certificates[editId].id : null;
+
+  // Modified slightly to support editing text without needing to re-upload image
   if (!title || !org) {
-    alert("Please fill in Title and Organization!");
+    alert("Title and Org are required");
     return;
   }
-
-  const saveBtns = document.querySelectorAll(".cert-modal-content button.save, .cert-modal-content .btn.primary");
-  const activeBtn = saveBtns.length > 0 ? saveBtns[saveBtns.length - 1] : null;
-
-  if(activeBtn) {
-      activeBtn.innerHTML = "Saving to Cloud...";
-      activeBtn.disabled = true;
+  
+  if (!file && editId === null) {
+      alert("Please select an image!");
+      return;
   }
 
+  // Bind to the explicit save button
+  const saveBtn = document.querySelector("#certModal .btn.primary");
+
   try {
-    let publicUrl = null;
-    let docId = editId !== null ? certificates[editId].id : null;
-
-    // Editing text only (no new image)
-    if (editId !== null && !file) {
-      if (docId) {
-          await window.updateDoc(window.doc(window.db, "certificates", docId), {
-              title, org, desc
-          });
-      }
-      
-      await loadCertsFromStorage(); // Refresh everything natively
-      closeCertModal();
-      alert("✅ Certificate updated in Cloud!");
-      return;
+    if(saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerText = "Saving...";
     }
 
-    if (!file) {
-      alert("Please select an image!");
-      if(activeBtn) {
-          activeBtn.innerHTML = "Save";
-          activeBtn.disabled = false;
-      }
-      return;
+    let url = null;
+    if (file) {
+        // Upload to Firebase Storage
+        const storageRef = window.ref(window.storage, "certificates/" + Date.now() + "_" + file.name);
+        await window.uploadBytes(storageRef, file);
+        url = await window.getDownloadURL(storageRef);
     }
-    
-    if (!window.storage) {
-       alert("Firebase Storage not initialized.");
-       if(activeBtn) { activeBtn.innerHTML = "Save"; activeBtn.disabled = false;}
-       return;
-    }
-
-    // Upload to Firebase Storage
-    const storagePath = 'certificates/' + Date.now() + '_' + file.name;
-    const fileRef = window.ref(window.storage, storagePath);
-    await window.uploadBytes(fileRef, file);
-    
-    // Get public URL
-    publicUrl = await window.getDownloadURL(fileRef);
 
     if (editId !== null && docId) {
-        // Update existing document
-        await window.updateDoc(window.doc(window.db, "certificates", docId), {
-             title, org, desc, image: publicUrl
-        });
+        const payload = { title, org, desc };
+        if (url) payload.image = url;
+        await window.updateDoc(window.doc(window.db, "certificates", docId), payload);
     } else {
-        // Add completely new document to collection
+        // Save to Firestore
         await window.addDoc(window.collection(window.db, "certificates"), {
-             title, org, desc, image: publicUrl
+            title,
+            org,
+            desc,
+            image: url,
+            createdAt: new Date().getTime()
         });
     }
 
-    await loadCertsFromStorage(); // Refresh natively
-    closeCertModal();
-    alert("✅ Certificate saved safely to specific Firebase Collection!");
+    alert("Saved Successfully ✅");
+    document.getElementById("certModal").style.display = "none";
+    loadCertificates(); // reload UI
 
-  } catch (e) {
-    console.error("Cert upload failed", e);
-    alert("Upload failed: " + e.message);
+  } catch (err) {
+    console.error(err);
+    alert("Error saving certificate ❌");
   } finally {
-    if(activeBtn) {
-        activeBtn.innerHTML = "Save";
-        activeBtn.disabled = false;
+    if(saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.innerText = "Save";
     }
   }
 }
