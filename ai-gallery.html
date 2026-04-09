@@ -817,15 +817,24 @@
 
             if (window.db) {
                 try {
-                    window.onSnapshot(window.doc(window.db, "portfolio", "gallery"), (docSnap) => {
-                        if (docSnap.exists() && docSnap.data().data) {
-                            galleryData = docSnap.data().data;
-                        } else {
+                    window.onSnapshot(
+                        window.doc(window.db, "portfolio", "gallery"),
+                        (docSnap) => {
+                            if (docSnap.exists() && docSnap.data().data) {
+                                galleryData = docSnap.data().data;
+                            } else {
+                                galleryData = [];
+                            }
+                            renderGallery();
+                            if (loading) loading.style.display = "none";
+                        },
+                        (err) => {
+                            console.warn("Firebase gallery read blocked:", err.code || err.message);
                             galleryData = [];
+                            renderGallery();
+                            if (loading) loading.style.display = "none";
                         }
-                        renderGallery();
-                        if (loading) loading.style.display = "none";
-                    });
+                    );
                 } catch (e) {
                     console.log("Firebase error", e);
                     if (loading) loading.style.display = "none";
