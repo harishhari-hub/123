@@ -906,6 +906,11 @@ function closeZoom() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Init cert section immediately on page load
+  if (typeof loadCertificates === "function") {
+    setTimeout(() => loadCertificates(), 600);
+  }
+
   const zoomModal = document.getElementById("zoomModal");
   if (zoomModal) {
     zoomModal.addEventListener("click", (e) => {

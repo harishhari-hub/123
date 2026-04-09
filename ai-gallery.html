@@ -446,7 +446,7 @@
     <button class="floating-add" onclick="openModal()" title="Add to Vault">+</button>
 
     <!-- ADD MODAL -->
-    <div id="modal">
+    <div id="modal" style="display:none;">
         <div class="modal-content">
             <h2>Add to Vault</h2>
             <div class="upload-area">
@@ -472,7 +472,7 @@
         // UI MODAL CONTROLS
         function openModal() {
             const m = document.getElementById("modal");
-            if(m) m.style.display = "flex";
+            if(m) { m.style.display = "flex"; m.style.alignItems = "center"; m.style.justifyContent = "center"; }
         }
         function closeModal() {
             const m = document.getElementById("modal");
@@ -616,7 +616,7 @@
 
         // FIREBASE STORAGE UPLOAD (Collection Flow)
         async function addMedia() {
-            const fileInput = document.getElementById("mediaInput");
+            const fileInput = document.getElementById("fileInput");
             if (!fileInput) return alert("Upload element error");
             const file = fileInput.files[0];
             
