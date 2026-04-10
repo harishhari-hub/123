@@ -599,43 +599,7 @@ function verifyAdmin() {
     return pass === ADMIN_PASSWORD;
 }
 
-function toggleEdit() {
-    if (!editMode && !verifyAdmin()) {
-        alert("Access Denied ❌");
-        return;
-    }
-
-    editMode = !editMode;
-    const navBtn = document.getElementById("navEditBtn");
-    const addBtn = document.getElementById("addCertBtn");
-    const saveBtn = document.getElementById("saveBtn");
-    const exportBtn = document.getElementById("exportBtn");
-
-    if (editMode) {
-        navBtn.innerHTML = '<i class="fa-solid fa-lock-open"></i> Exit Admin';
-        navBtn.classList.add("active-admin");
-        if (addBtn) addBtn.style.display = 'inline-block';
-        if (saveBtn) saveBtn.style.display = 'inline-block';
-        if (exportBtn) exportBtn.style.display = 'inline-block';
-        document.body.classList.add('admin-mode');
-        enableTextEdit();
-    } else {
-        navBtn.innerHTML = '<i class="fa-solid fa-lock"></i> Edit Portfolio';
-        navBtn.classList.remove("active-admin");
-        navBtn.style.background = '';
-        if (addBtn) addBtn.style.display = 'none';
-        if (saveBtn) saveBtn.style.display = 'none';
-        if (exportBtn) exportBtn.style.display = 'none';
-        document.body.classList.remove('admin-mode');
-        disableTextEdit();
-        saveTextContent();
-    }
-
-    // Re-render to show/hide the card admin buttons
-    if (typeof renderCertificatesUI === 'function') {
-        renderCertificatesUI(document.getElementById("certGrid"));
-    }
-}
+// First toggleEdit removed (consolidated below)
 
 function exportForGithub() {
     const dataStr = "window.DEFAULT_PORTFOLIO_DATA = " + JSON.stringify(portfolioData, null, 2) + ";";
@@ -724,21 +688,12 @@ function verifyAdmin() {
 
 function toggleEdit() {
     editMode = !editMode;
-    const adminStatus = document.getElementById("adminStatus");
-    if (adminStatus) {
-        adminStatus.innerHTML = editMode ? '<span style="color:#00ff88">🔓 Edit Mode Active</span>' : '<span style="color:red">🔒 Edit Mode Locked</span>';
-    }
 
     const editBtn = document.getElementById("navEditBtn");
     if (editBtn) {
         editBtn.innerHTML = editMode ? '<i class="fa-solid fa-lock-open"></i> Exit Edit Mode' : '<i class="fa-solid fa-lock"></i> Edit Portfolio';
-        editBtn.onclick = editMode ? toggleEdit : verifyAdmin;
+        if (!editMode) editBtn.onclick = verifyAdmin;
     }
-
-    // Toggle specific edit/delete buttons
-    document.querySelectorAll(".edit, .delete, .admin-delete-btn").forEach(el => {
-        el.style.display = editMode ? "inline-block" : "none";
-    });
 
     // Toggle Add New wrappers
     const addWrappers = [
@@ -757,9 +712,8 @@ function toggleEdit() {
     }
     
     // Rerender grids to show/hide admin buttons within them
-    if (typeof renderCertificates === "function") renderCertificates();
-    if (typeof renderSkills === "function") renderSkills();
-    if (typeof renderProjects === "function") renderProjects();
+    const certGrid = document.getElementById("certGrid");
+    if (certGrid) renderCertificatesUI(certGrid);
 }
 
 function saveData(type) {
@@ -1024,15 +978,28 @@ async function saveCertificate() {
 
     let url = null;
     if (file) {
-        // Upload to Firebase Storage with strict 5-second timeout for missing buckets
-        const storageRef = window.storage.ref("certificates/" + Date.now() + "_" + file.name);
-        
-        const uploadPromise = storageRef.put(file);
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("BUCKET_MISSING")), 5000));
-        
-        await Promise.race([uploadPromise, timeoutPromise]);
-        
-        url = await storageRef.getDownloadURL();
+        if (file.type.startsWith('video/')) {
+            alert("Videos not supported for certificates.");
+            return;
+        }
+        // Base64 Compression injection to bypass missing Firebase Storage!
+        url = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let w = img.width, h = img.height;
+                    const max = 1000;
+                    if (w > max || h > max) { if (w > h) { h *= max / w; w = max; } else { w *= max / h; h = max; } }
+                    canvas.width = w; canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    resolve(canvas.toDataURL('image/jpeg', 0.7));
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
     }
 
     if (editId !== null && docId) {
