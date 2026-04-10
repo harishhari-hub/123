@@ -1024,9 +1024,14 @@ async function saveCertificate() {
 
     let url = null;
     if (file) {
-        // Upload to Firebase Storage
+        // Upload to Firebase Storage with strict 5-second timeout for missing buckets
         const storageRef = window.storage.ref("certificates/" + Date.now() + "_" + file.name);
-        await storageRef.put(file);
+        
+        const uploadPromise = storageRef.put(file);
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("BUCKET_MISSING")), 5000));
+        
+        await Promise.race([uploadPromise, timeoutPromise]);
+        
         url = await storageRef.getDownloadURL();
     }
 
@@ -1049,10 +1054,14 @@ async function saveCertificate() {
     document.getElementById("certModal").style.display = "none";
     loadCertificates(); // reload UI
 
-  } catch (err) {
-    console.error(err);
-    alert("Error saving certificate ❌");
-  } finally {
+    } catch (error) {
+        console.error("Certificate Save Error:", error);
+        if (error.message === "BUCKET_MISSING") {
+            alert("⚠️ FIREBASE STORAGE IS EMPTY! ⚠️\n\nYou MUST go back to your Firebase Console, click 'Storage' on the left menu, and click 'Get Started' to activate the bucket! Your uploads are hanging because the bucket literally does not exist yet.");
+        } else {
+            alert("Failed to save certificate: " + error.message);
+        }
+    } finally {
     if(saveBtn) {
         saveBtn.disabled = false;
         saveBtn.innerText = "Save";

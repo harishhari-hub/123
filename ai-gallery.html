@@ -482,7 +482,7 @@
     </script>
     <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-storage-compat.js"></script>
-    <script src="firebase-config.js?v=1775802875327"></script>
+    <script src="firebase-config.js?v=1775825138530"></script>
     <script>
         // ==========================================
         // SHARAN VAULT — Pure Firebase Storage Collection System
@@ -645,10 +645,14 @@
             try {
                 const isVideo = file.type.startsWith('video/');
                 
-                // Upload to Firebase Storage
+                // Upload to Firebase Storage with strict 5-second timeout for missing buckets
                 const storagePath = 'gallery/' + Date.now() + '_' + file.name;
                 const fileRef = window.storage.ref(storagePath);
-                await fileRef.put(file);
+                
+                const uploadPromise = fileRef.put(file);
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("BUCKET_MISSING")), 5000));
+                
+                await Promise.race([uploadPromise, timeoutPromise]);
                 
                 // Get public download URL
                 const publicUrl = await fileRef.getDownloadURL();
@@ -669,7 +673,11 @@
 
             } catch (error) {
                 console.error("Upload failed", error);
-                alert("Upload failed: " + error.message);
+                if (error.message === "BUCKET_MISSING") {
+                    alert("⚠️ FIREBASE STORAGE IS EMPTY! ⚠️\n\nYou MUST go back to your Firebase Console, click 'Storage' on the left menu, and click 'Get Started' to activate the bucket! Your uploads are hanging because the bucket literally does not exist yet.");
+                } else {
+                    alert("Upload failed: " + error.message);
+                }
             } finally {
                 if (saveBtn) {
                     saveBtn.disabled = false;
