@@ -1337,54 +1337,28 @@ function speak(text) {
   window.speechSynthesis.speak(speech);
 }
 
-// Obfuscated API key to bypass GitHub Secret Scanning
-const GROQ_API_KEY = "4wyaE36SMFYMLuJr1QGJnGpbYF3bydGWpf6f3py4ELaQbR0MFRZM_ksg".split('').reverse().join('');
+// JARVIS AI — Smart local responses (API-free, always works)
 let jarvisMemory = [];
-const JARVIS_SYSTEM_PROMPT = `You are JARVIS — Just A Rather Very Intelligent System — the personal AI assistant of Mydhili Sharan K's cybersecurity portfolio.
 
-PERSONALITY:
-- Speak like the real JARVIS from Iron Man: calm, polished, slightly formal, witty, and loyal.
-- Use phrases like: "Of course.", "Right away.", "Certainly.", "As you wish.", "Allow me to assist.", "Might I suggest...", "Indeed."
-- You are deeply knowledgeable, never flustered, always composed.
-- You refer to Mydhili respectfully and speak on her behalf to visitors.
-- You NEVER say "I'm a text-based AI" or "I can't open links." You simply provide the information directly.
+const JARVIS_SYSTEM_PROMPT = `You are JARVIS, Mydhili Sharan K's personal AI assistant.`;
 
-KNOWLEDGE BASE — MYDHILI SHARAN K:
-- Full Name: Mydhili Sharan K (MSK)
-- Specialization: Cybersecurity, Cloud Security, SOC Analysis
-- Based in India
-
-SKILLS:
-- Cloud Security: AWS EC2, VPC, IAM, S3, CloudTrail, CloudWatch, GuardDuty, KMS Encryption
-- Networking: TCP/IP, DNS, HTTP/HTTPS, IPv4/IPv6, Subnetting, Network Architecture
-- SOC Operations: SIEM Monitoring, Log Analysis, Threat Detection, Incident Response
-- Cybersecurity: CIA Triad, Risk Assessment, Vulnerability Management, Compliance
-- Penetration Testing: Nmap, Burp Suite, Metasploit, SQLMap
-- Digital Forensics: Log Investigation, Evidence Collection, Incident Analysis
-
-EXPERIENCE:
-1. Cyber Security Intern — White and Box Tech Products & Services (Feb 2026 – May 2026)
-2. Security Operations Trainee — Infotact Solutions (2025–2026)
-3. Cloud Security Intern — Aerovant Technology (2025)
-4. Cybersecurity Projects — Personal & Academic Work (2024–2026)
-
-PROJECTS:
-1. Blockchain-Based Forensic Framework — Python; detects unauthorized file timestamp manipulation using cryptographic hashing + blockchain.
-2. Fast Port Scanner — Async Python-based network port scanner for security audits.
-3. Duplicate File Analyzer — MD5/SHA-256 hashing system to detect duplicate files across storage.
-
-CONTACT:
-- Email: mydhilisharan4766@gmail.com
-- LinkedIn: linkedin.com/in/mydhili-sharan-k-68bb152bb
-- GitHub: github.com/mydhilisharan
-- Instagram: @sharan_____1206
-
-RESPONSE RULES:
-- Always answer questions directly — skills, projects, experience, contact.
-- When asked for links, provide the full URL text clearly so visitors can copy it.
-- Keep answers sharp, concise, and professional — like JARVIS would.
-- If someone greets you, greet them back in JARVIS style.
-- Example: If asked "Who are you?" → "I am JARVIS, Mydhili Sharan K's personal AI assistant. How may I be of service?"`;
+// Smart local JARVIS fallback
+function getJarvisLocalReply(message) {
+    const t = message.toLowerCase();
+    if (t.match(/hi|hello|hey|greet|good/)) return "Good day. I am JARVIS, Mydhili Sharan K's personal AI assistant. How may I be of service?";
+    if (t.match(/who are you|what are you|your name/)) return "I am JARVIS — Just A Rather Very Intelligent System — serving as Mydhili Sharan K's personal portfolio assistant. At your service.";
+    if (t.match(/skill|expertise|know|tech|tool/)) return "Of course. Mydhili specialises in AWS Cloud Security (EC2, IAM, VPC, GuardDuty), SOC Operations with SIEM platforms, Penetration Testing using Nmap and Burp Suite, and Digital Forensics. Quite an impressive arsenal.";
+    if (t.match(/project|build|create/)) return "Certainly. Her notable projects include: a Blockchain-Based Forensic Framework for detecting file timestamp manipulation, a Fast Async Port Scanner for security audits, and a Duplicate File Analyzer using cryptographic hashing.";
+    if (t.match(/experience|job|intern|company/)) return "Right away. Mydhili has interned at White and Box Tech Products as a Cyber Security Intern (2026), worked as a Security Operations Trainee at Infotact Solutions, and as a Cloud Security Intern at Aerovant Technology.";
+    if (t.match(/cert|aws|google|course|qualif/)) return "Indeed. Her certifications include Google Cybersecurity (Coursera), LetsDefend SOC Analyst (Levels 1 & 2), Ethical Hacking (Udemy), TryHackMe achievements, and Data Analytics. Thoroughly credentialed.";
+    if (t.match(/contact|email|phone|reach|hire|linkedin/)) return "Allow me. You may reach Mydhili at mydhilisharan4766@gmail.com or connect via LinkedIn: linkedin.com/in/mydhili-sharan-k-68bb152bb. She is available for cybersecurity opportunities.";
+    if (t.match(/github|code|repo/)) return "Her GitHub is at github.com/mydhilisharan. This portfolio you are viewing showcases her projects and certifications in detail.";
+    if (t.match(/cloud|aws|azure/)) return "Mydhili's cloud expertise covers AWS EC2, VPC architecture, IAM policy management, CloudTrail auditing, CloudWatch monitoring, GuardDuty threat detection, and KMS encryption.";
+    if (t.match(/soc|siem|threat|incident|monitor/)) return "Mydhili is proficient in SOC Operations — SIEM monitoring, log analysis, threat detection, and incident response, applied during her roles at Infotact Solutions.";
+    if (t.match(/hack|pentest|penetrat|exploit|nmap|burp/)) return "In penetration testing, Mydhili works with Nmap for network scanning, Burp Suite for web application testing, Metasploit for exploitation, and SQLMap for database vulnerability assessment. Ethically, of course.";
+    if (t.match(/thank|thanks|appreciate/)) return "You are most welcome. Is there anything else I may assist you with regarding Mydhili's background?";
+    return "A most intriguing inquiry. I can assist with questions about Mydhili's skills, projects, experience, certifications, and contact details. What would you like to know?";
+}
 
 async function sendMessage() {
   const input = document.getElementById("chat-input");
@@ -1399,41 +1373,16 @@ async function sendMessage() {
   jarvisMemory.push({ role: "user", content: message });
   if (jarvisMemory.length > 20) jarvisMemory = jarvisMemory.slice(-20);
 
-  try {
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": "Bearer " + GROQ_API_KEY,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [{ role: "system", content: JARVIS_SYSTEM_PROMPT }, ...jarvisMemory],
-        temperature: 0.7,
-        max_tokens: 512
-      })
-    });
+  // Simulate JARVIS thinking delay, then respond locally
+  await new Promise(r => setTimeout(r, 700 + Math.random() * 400));
+  removeTyping();
 
-    const data = await res.json();
-    removeTyping();
+  const reply = getJarvisLocalReply(message);
+  jarvisMemory.push({ role: "assistant", content: reply });
+  typeMessage(reply);
+  speak(reply);
 
-    if (data.error) {
-      addMessage("AI", "⚠️ Service issue: " + data.error.message);
-      return;
-    }
 
-    const reply = data.choices[0].message.content;
-    jarvisMemory.push({ role: "assistant", content: reply });
-    
-    typeMessage(reply);
-    speak(reply);
-
-  } catch (error) {
-    console.error(error);
-    removeTyping();
-    addMessage("AI", "⚠️ Network error. Please check your internet connection.");
-  }
-}
 
 function resetAI() {
   jarvisMemory = [];
