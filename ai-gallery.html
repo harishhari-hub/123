@@ -411,6 +411,34 @@
         .gallery-item:hover .delete-btn { opacity: 1; transform: scale(1); }
         .delete-btn:hover { background: #ff1a3c !important; transform: scale(1.2) !important; }
 
+        
+        /* VIDEO PLAY BADGE */
+        .video-play-badge {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            background: linear-gradient(135deg, rgba(0,200,255,0.85), rgba(0,80,255,0.85));
+            color: #fff;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            padding: 4px 8px;
+            border-radius: 20px;
+            z-index: 15;
+            pointer-events: none;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 2px 8px rgba(0,200,255,0.5);
+        }
+        /* Animated cyan glow border for video cards */
+        .gallery-item:has(video) {
+            border: 1.5px solid rgba(0,200,255,0.5);
+            animation: videoGlow 2.5s ease-in-out infinite alternate;
+        }
+        @keyframes videoGlow {
+            from { box-shadow: 0 0 8px rgba(0,200,255,0.3); border-color: rgba(0,200,255,0.3); }
+            to   { box-shadow: 0 0 22px rgba(0,200,255,0.8); border-color: rgba(0,200,255,0.8); }
+        }
+
         /* ========== MOBILE RESPONSIVENESS ========== */
         @media (max-width: 768px) {
             .gallery-grid, .vault-content {
@@ -508,7 +536,7 @@
     </script>
     <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-storage-compat.js"></script>
-    <script src="firebase-config.js?v=1775828468033"></script>
+    <script src="firebase-config.js?v=1775828915419"></script>
     <script>
         // ==========================================
         // SHARAN VAULT — Pure Firebase Storage Collection System
@@ -560,8 +588,8 @@
                 const cardHTML = `
                     <div class="gallery-item" onclick="openLightbox(${index})">
                         ${isVideo 
-                            ? `<div class="video-indicator">▶</div>
-                               <video src="${item.src}" preload="metadata"></video>`
+                            ? `<video src="${item.src}" autoplay muted loop playsinline preload="auto" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></video>
+                               <div class="video-play-badge">🎬 VIDEO</div>`
                             : `<img src="${item.src}" loading="lazy" alt="Vault Item">`
                         }
                         <div class="delete-btn" onclick="deleteMedia(${index}, '${item.id}', event)">
@@ -589,6 +617,14 @@
 
             if (hasImages) vaultContainer.innerHTML += imagesHTML;
             if (hasVideos) vaultContainer.innerHTML += videosHTML;
+
+            // Force all videos to autoplay after DOM injection
+            setTimeout(() => {
+                vaultContainer.querySelectorAll('video').forEach(v => {
+                    v.muted = true;
+                    v.play().catch(() => {}); // suppress browser autoplay policy errors
+                });
+            }, 100);
         }
 
         // LOAD DATA USING GETDOCS (PROPER ASYNC WITH TRY/FINALLY)
