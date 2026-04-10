@@ -1024,21 +1024,9 @@ async function saveCertificate() {
 
     let url = null;
     if (file) {
-        // Upload to Firebase Storage with error handling and timeout
+        // Upload to Firebase Storage
         const storageRef = window.storage.ref("certificates/" + Date.now() + "_" + file.name);
-        
-        await new Promise((resolve, reject) => {
-            // Set a 15-second timeout in case Firebase Storage is completely missing/hanging
-            const timeout = setTimeout(() => reject(new Error("Upload timed out. Check if Firebase Storage is enabled and rules are configured.")), 15000);
-            
-            const uploadTask = storageRef.put(file);
-            uploadTask.on('state_changed', 
-                null, 
-                (error) => { clearTimeout(timeout); reject(error); }, 
-                () => { clearTimeout(timeout); resolve(); }
-            );
-        });
-        
+        await storageRef.put(file);
         url = await storageRef.getDownloadURL();
     }
 
