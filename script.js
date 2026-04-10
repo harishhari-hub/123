@@ -632,7 +632,9 @@ function toggleEdit() {
     }
 
     // Re-render to show/hide the card admin buttons
-    renderCertificates();
+    if (typeof renderCertificatesUI === 'function') {
+        renderCertificatesUI(document.getElementById("certGrid"));
+    }
 }
 
 function exportForGithub() {
