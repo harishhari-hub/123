@@ -2567,6 +2567,37 @@ transform: scale(1.1);
 .edit { background: #ffc107; color: #000; font-weight: 600; }
 .delete { background: #ff4d4d; color: #fff; border:none; }
 
+/* ====== CERT BUTTONS — CANONICAL ====== */
+.cert-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.cert-buttons button {
+  flex: 1;
+  min-width: 60px;
+  padding: 8px 6px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: transform 0.2s, opacity 0.2s;
+}
+.cert-buttons button:hover { opacity: 0.9; transform: translateY(-2px); }
+.cert-buttons .view   { background: linear-gradient(135deg, #00c6ff, #0072ff); color: #fff; }
+.cert-buttons .dl     { background: linear-gradient(135deg, #7b4fff, #5e35d4); color: #fff; }
+.cert-buttons .edit   { background: linear-gradient(135deg, #ffcc00, #f59e0b); color: #000; display: none; }
+.cert-buttons .delete { background: linear-gradient(135deg, #ff4d4d, #cc0000); color: #fff; display: none; }
+body.admin-mode .cert-buttons .edit,
+body.admin-mode .cert-buttons .delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* MODAL FIX */
 .modal {
 display: none;

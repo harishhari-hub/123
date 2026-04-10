@@ -689,31 +689,46 @@ function verifyAdmin() {
 function toggleEdit() {
     editMode = !editMode;
 
+    // Toggle body class — CSS uses this to show/hide Edit & Delete buttons
+    if (editMode) {
+        document.body.classList.add('admin-mode');
+    } else {
+        document.body.classList.remove('admin-mode');
+    }
+
     const editBtn = document.getElementById("navEditBtn");
     if (editBtn) {
-        editBtn.innerHTML = editMode ? '<i class="fa-solid fa-lock-open"></i> Exit Edit Mode' : '<i class="fa-solid fa-lock"></i> Edit Portfolio';
+        editBtn.innerHTML = editMode
+            ? '<i class="fa-solid fa-lock-open"></i> Exit Edit Mode'
+            : '<i class="fa-solid fa-lock"></i> Edit Portfolio';
+        editBtn.style.background = editMode
+            ? 'linear-gradient(135deg, #ff4d4d, #cc0000)'
+            : '';
         if (!editMode) editBtn.onclick = verifyAdmin;
     }
 
-    // Toggle Add New wrappers
-    const addWrappers = [
-        document.getElementById('addSkillBtn'),
-        document.getElementById('addProjectBtn'),
-        document.getElementById('addExpBtn'),
-        document.getElementById('saveBtn'),
-        document.getElementById('exportBtn')
-    ];
-    addWrappers.forEach(el => {
-        if(el) el.style.display = editMode ? "inline-block" : "none";
+    // Show/hide the addCertBtn
+    const addBtn = document.getElementById('addCertBtn');
+    if (addBtn) addBtn.style.display = editMode ? 'inline-block' : 'none';
+
+    // Show/hide other admin controls
+    ['addSkillBtn','addProjectBtn','addExpBtn','saveBtn','exportBtn'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = editMode ? 'inline-block' : 'none';
     });
 
-    if (typeof enableTextEdit === "function") {
-        if (editMode) enableTextEdit(); else disableTextEdit();
+    if (editMode) {
+        if (typeof enableTextEdit === 'function') enableTextEdit();
+    } else {
+        if (typeof disableTextEdit === 'function') disableTextEdit();
+        if (typeof saveTextContent === 'function') saveTextContent();
     }
-    
-    // Rerender grids to show/hide admin buttons within them
-    const certGrid = document.getElementById("certGrid");
-    if (certGrid) renderCertificatesUI(certGrid);
+
+    // Re-render certificate cards to inject/remove Edit+Delete buttons
+    const certGrid = document.getElementById('certGrid');
+    if (certGrid && typeof renderCertificatesUI === 'function') {
+        renderCertificatesUI(certGrid);
+    }
 }
 
 function saveData(type) {
@@ -803,10 +818,11 @@ function renderCertificatesUI(container) {
         if (imgSrc.startsWith('file://') || imgSrc.startsWith('C:/')) return;
 
         const docIdArg = c.id ? `'${c.id}'` : 'null';
-        const adminTools = editMode ? `
-          <button class="edit" onclick="openCertModal(${index})">Edit</button>
-          <button class="delete" onclick="deleteCert(${index}, ${docIdArg})">Delete</button>
-        ` : "";
+        // Always inject Edit/Delete — CSS shows them only when body.admin-mode is active
+        const adminTools = `
+          <button class="edit" onclick="openCertModal(${index})">✏️ Edit</button>
+          <button class="delete" onclick="deleteCert(${index}, ${docIdArg})">🗑️ Delete</button>
+        `;
 
         container.innerHTML += `
           <div class="cert-card">

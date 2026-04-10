@@ -386,6 +386,31 @@
 
         @keyframes spin { to { transform: rotate(360deg); } }
 
+        /* GALLERY ITEM DELETE BUTTON */
+        .gallery-item { position: relative; overflow: hidden; }
+        .delete-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 34px;
+            height: 34px;
+            background: rgba(220, 30, 70, 0.92);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 30;
+            opacity: 0;
+            transform: scale(0.7);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            box-shadow: 0 2px 12px rgba(220,30,70,0.6);
+            border: none;
+        }
+        .delete-btn svg { width: 15px; height: 15px; stroke: white; fill: none; stroke-width: 2.5; }
+        .gallery-item:hover .delete-btn { opacity: 1; transform: scale(1); }
+        .delete-btn:hover { background: #ff1a3c !important; transform: scale(1.2) !important; }
+
         /* ========== MOBILE RESPONSIVENESS ========== */
         @media (max-width: 768px) {
             .gallery-grid, .vault-content {
@@ -404,9 +429,9 @@
                 padding: 0 10px;
             }
             .floating-add {
-                bottom: 80px; 
-                right: 20px; 
-                left: auto; /* move it to right so it doesn't block text overflow too heavily */
+                bottom: 80px;
+                right: 20px;
+                left: auto;
                 width: 50px;
                 height: 50px;
                 font-size: 24px;
@@ -419,6 +444,7 @@
                 width: 90%;
                 padding: 24px;
             }
+            .delete-btn { opacity: 1; transform: scale(1); } /* Always visible on mobile */
         }
     </style>
 </head>
@@ -482,7 +508,7 @@
     </script>
     <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-storage-compat.js"></script>
-    <script src="firebase-config.js?v=1775827307413"></script>
+    <script src="firebase-config.js?v=1775828468033"></script>
     <script>
         // ==========================================
         // SHARAN VAULT — Pure Firebase Storage Collection System
@@ -538,7 +564,7 @@
                                <video src="${item.src}" preload="metadata"></video>`
                             : `<img src="${item.src}" loading="lazy" alt="Vault Item">`
                         }
-                        <div class="delete-btn" onclick="deleteMedia(${index}, "${item.id}", event)">
+                        <div class="delete-btn" onclick="deleteMedia(${index}, '${item.id}', event)">
                             <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                             </svg>
@@ -644,21 +670,22 @@
 
             try {
                 const isVideo = file.type.startsWith('video/');
-                // BYPASS FIREBASE STORAGE - USE DATABASE DATA URIS FOR INSTANT UPLOAD
-                let publicUrl = "";
-                if (isVideo) {
-                    alert("Videos require Firebase Storage. Without the bucket enabled, only images can be saved directly.");
-                    throw new Error("BUCKET_MISSING_FOR_VIDEO");
-                } else {
-                    // Compress image aggressively and safely store as a direct database string
-                    publicUrl = await new Promise((resolve) => {
-                        const reader = new FileReader();
-                        reader.onload = (e) => {
+                // BYPASS FIREBASE STORAGE — store directly as base64 in Firestore
+                const publicUrl = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onerror = () => reject(new Error('File read failed'));
+                    reader.onload = (e) => {
+                        if (isVideo) {
+                            // Videos stored as raw base64 dataURL
+                            resolve(e.target.result);
+                        } else {
+                            // Compress image before storing
                             const img = new Image();
+                            img.onerror = () => reject(new Error('Image load failed'));
                             img.onload = () => {
                                 const canvas = document.createElement('canvas');
                                 let w = img.width, h = img.height;
-                                const max = 800; // Ensure sub-1MB size for Firestore
+                                const max = 800;
                                 if (w > max || h > max) {
                                     if (w > h) { h *= max / w; w = max; }
                                     else { w *= max / h; h = max; }
@@ -668,10 +695,10 @@
                                 resolve(canvas.toDataURL('image/jpeg', 0.7));
                             };
                             img.src = e.target.result;
-                        };
-                        reader.readAsDataURL(file);
-                    });
-                }
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                });
 
                 const newItem = {
                     type: isVideo ? "video" : "image",
