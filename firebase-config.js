@@ -5,13 +5,13 @@
 // ================================================
 
 const firebaseConfig = {
-  apiKey: "AIzaSyC8AKRIPobJoLqkMCI_FI7D9gEnvqevM5s",
-  authDomain: "sharan-portfolio-1.firebaseapp.com",
-  projectId: "sharan-portfolio-1",
-  storageBucket: "sharan-portfolio-1.appspot.com",
-  messagingSenderId: "384568106024",
-  appId: "1:384568106024:web:b94bf5c7bdc0c42f1ae91d",
-  measurementId: "G-5GRVXCLCS9"
+  apiKey: "AIzaSyCXSthpVJTyIq553w4lBjCRM1vbhyYC7i4",
+  authDomain: "sharan-portfolio-660af.firebaseapp.com",
+  projectId: "sharan-portfolio-660af",
+  storageBucket: "sharan-portfolio-660af.firebasestorage.app",
+  messagingSenderId: "95290821520",
+  appId: "1:95290821520:web:64144c8697523700df0115",
+  measurementId: "G-0TSRXBVNFJ"
 };
 
 try {
