@@ -25,9 +25,11 @@ export default async function handler(req, res) {
         'Authorization': 'Bearer re_Hq94DW6Y_3ERxJrV6VwWdj41XibvnY6gX'
       },
       body: JSON.stringify({
-        from: 'Portfolio Contact <onboarding@resend.dev>',
+        from: 'JARVIS Portfolio <onboarding@resend.dev>',
         to:   ['mydhilisharan4766@gmail.com'],
-        subject: `📬 Portfolio Contact from ${name}`,
+        reply_to: email,
+        subject: `New Portfolio Message from ${name}`,
+        text: `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}\n\n---\nSent via JARVIS Portfolio Contact Form`,
         html: `
           <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;background:#0a0f1e;color:#e0f7ff;padding:32px;border-radius:12px;border:1px solid #00eaff33">
             <h2 style="color:#00eaff;margin-bottom:4px">New Portfolio Message</h2>
@@ -36,7 +38,7 @@ export default async function handler(req, res) {
             <p><strong style="color:#00eaff">Email:</strong> <a href="mailto:${email}" style="color:#00eaff">${email}</a></p>
             <p><strong style="color:#00eaff">Message:</strong></p>
             <div style="background:#0d1b2a;padding:16px;border-radius:8px;border-left:3px solid #00eaff;white-space:pre-wrap">${message}</div>
-            <p style="margin-top:24px;font-size:12px;color:#4a6070">Sent via JARVIS Portfolio Contact Form</p>
+            <p style="margin-top:24px;font-size:12px;color:#4a6070">Reply directly to this email to respond to ${name}.</p>
           </div>
         `
       })
