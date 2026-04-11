@@ -10,8 +10,18 @@
         body {
             font-family: 'Segoe UI', sans-serif;
             color: white;
-            background: radial-gradient(ellipse at top, #0a192f 0%, #020617 100%);
+            background-color: #020617;
             min-height: 100vh;
+        }
+        body::before {
+            content: ""; position: fixed; inset: 0; width: 100%; height: 100%;
+            background: url("clock.img.jpeg") center / cover no-repeat;
+            filter: brightness(0.35) saturate(1.4); z-index: -3; transform: scale(1.05);
+        }
+        body::after {
+            content: ""; position: fixed; inset: 0; width: 100%; height: 100%;
+            background: linear-gradient(160deg, rgba(2, 8, 25, 0.82) 0%, rgba(5, 12, 35, 0.65) 40%, rgba(0, 5, 20, 0.88) 100%);
+            z-index: -2;
         }
 
         /* HEADER */
