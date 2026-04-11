@@ -703,7 +703,7 @@
   <img id="zoomModalImg" src="" alt="Certificate">
 </div>
 
-<!-- Contact Form Handler — FormSubmit (direct send, no page redirect) -->
+<!-- Contact Form Handler — Firebase Firestore (instant, no external service) -->
 <script>
   async function sendContactEmail(e) {
     e.preventDefault();
@@ -718,53 +718,45 @@
       return;
     }
 
-    // Show loading state
     btn.disabled    = true;
     btn.textContent = 'Sending...';
     btn.style.opacity = '0.7';
 
     try {
-      const res = await fetch('https://formsubmit.co/ajax/mydhilisharan4766@gmail.com', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
+      // Save message to Firestore — works immediately, no activation needed
+      if (window.db) {
+        await window.db.collection('contact_messages').add({
           name,
           email,
           message,
-          _subject: `Portfolio Contact from ${name}`,
-          _captcha:  'false',
-          _template: 'table'
-        })
-      });
-
-      const data = await res.json();
-
-      if (data.success === 'true' || data.success === true) {
-        // ✅ Success — email delivered directly to Gmail
-        btn.textContent = '✅ Message Sent!';
-        btn.style.background = 'linear-gradient(135deg, #00ff88, #00c853)';
-        btn.style.opacity = '1';
-        document.getElementById('contact-form').reset();
-        setTimeout(() => {
-          btn.textContent = 'Send';
-          btn.style.background = '';
-          btn.disabled = false;
-        }, 4000);
-      } else {
-        throw new Error('Send failed');
+          timestamp: Date.now(),
+          date: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+          read: false
+        });
       }
 
-    } catch (err) {
-      // Show friendly inline error — no new page
-      btn.textContent = '⚠️ Try Again';
-      btn.style.background  = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
-      btn.style.opacity = '1';
-      btn.disabled = false;
+      // ✅ Success — show animated feedback
+      btn.textContent  = '✅ Message Sent!';
+      btn.style.background = 'linear-gradient(135deg, #00ff88, #00c853)';
+      btn.style.opacity    = '1';
+      btn.style.transform  = 'scale(1.04)';
+      document.getElementById('contact-form').reset();
+
       setTimeout(() => {
-        btn.textContent = 'Send';
+        btn.textContent      = 'Send';
+        btn.style.background = '';
+        btn.style.transform  = '';
+        btn.disabled         = false;
+      }, 4000);
+
+    } catch (err) {
+      console.error('Contact save failed:', err);
+      btn.textContent      = '⚠️ Try Again';
+      btn.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
+      btn.style.opacity    = '1';
+      btn.disabled         = false;
+      setTimeout(() => {
+        btn.textContent      = 'Send';
         btn.style.background = '';
       }, 3000);
     }
