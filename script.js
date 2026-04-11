@@ -1517,6 +1517,7 @@ async function sendMessage() {
   jarvisMemory.push({ role: "assistant", content: reply });
   typeMessage(reply);
   speak(reply);
+}
 // ==========================================
 let jarvisRecognition = null;
 let isListening = false;
