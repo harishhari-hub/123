@@ -703,9 +703,9 @@
   <img id="zoomModalImg" src="" alt="Certificate">
 </div>
 
-<!-- Contact Form Handler — Direct Gmail Compose (100% reliable) -->
+<!-- Contact Form Handler — FormSubmit (direct send, no page redirect) -->
 <script>
-  function sendContactEmail(e) {
+  async function sendContactEmail(e) {
     e.preventDefault();
 
     const name    = document.getElementById('contact-name').value.trim();
@@ -718,28 +718,56 @@
       return;
     }
 
-    const subject = encodeURIComponent(`Portfolio Contact from ${name}`);
-    const body    = encodeURIComponent(
-      `Hello Mydhili,\n\nYou have a new message from your portfolio:\n\n` +
-      `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}\n\n` +
-      `---\nSent via Portfolio Contact Form`
-    );
+    // Show loading state
+    btn.disabled    = true;
+    btn.textContent = 'Sending...';
+    btn.style.opacity = '0.7';
 
-    // Open Gmail compose with all fields pre-filled
-    window.open(
-      `https://mail.google.com/mail/?view=cm&fs=1&to=mydhilisharan4766@gmail.com&su=${subject}&body=${body}`,
-      '_blank'
-    );
+    try {
+      const res = await fetch('https://formsubmit.co/ajax/mydhilisharan4766@gmail.com', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          name,
+          email,
+          message,
+          _subject: `Portfolio Contact from ${name}`,
+          _captcha:  'false',
+          _template: 'table'
+        })
+      });
 
-    // Visual feedback
-    btn.textContent = '✅ Gmail Opened!';
-    btn.style.background = 'linear-gradient(135deg, #00eaff, #007bff)';
-    document.getElementById('contact-form').reset();
+      const data = await res.json();
 
-    setTimeout(() => {
-      btn.textContent = 'Send';
-      btn.style.background = '';
-    }, 4000);
+      if (data.success === 'true' || data.success === true) {
+        // ✅ Success — email delivered directly to Gmail
+        btn.textContent = '✅ Message Sent!';
+        btn.style.background = 'linear-gradient(135deg, #00ff88, #00c853)';
+        btn.style.opacity = '1';
+        document.getElementById('contact-form').reset();
+        setTimeout(() => {
+          btn.textContent = 'Send';
+          btn.style.background = '';
+          btn.disabled = false;
+        }, 4000);
+      } else {
+        throw new Error('Send failed');
+      }
+
+    } catch (err) {
+      // Show friendly inline error — no new page
+      btn.textContent = '⚠️ Try Again';
+      btn.style.background  = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
+      btn.style.opacity = '1';
+      btn.disabled = false;
+      setTimeout(() => {
+        btn.textContent = 'Send';
+        btn.style.background = '';
+      }, 3000);
+    }
   }
 </script>
 
