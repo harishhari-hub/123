@@ -703,6 +703,46 @@
   <img id="zoomModalImg" src="" alt="Certificate">
 </div>
 
+<!-- Contact Form Handler — Direct Gmail Compose (100% reliable) -->
+<script>
+  function sendContactEmail(e) {
+    e.preventDefault();
+
+    const name    = document.getElementById('contact-name').value.trim();
+    const email   = document.getElementById('contact-email').value.trim();
+    const message = document.getElementById('contact-msg').value.trim();
+    const btn     = document.querySelector('.contact-submit-btn');
+
+    if (!name || !email || !message) {
+      alert('Please fill in all fields.');
+      return;
+    }
+
+    const subject = encodeURIComponent(`Portfolio Contact from ${name}`);
+    const body    = encodeURIComponent(
+      `Hello Mydhili,\n\nYou have a new message from your portfolio:\n\n` +
+      `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}\n\n` +
+      `---\nSent via Portfolio Contact Form`
+    );
+
+    // Open Gmail compose with all fields pre-filled
+    window.open(
+      `https://mail.google.com/mail/?view=cm&fs=1&to=mydhilisharan4766@gmail.com&su=${subject}&body=${body}`,
+      '_blank'
+    );
+
+    // Visual feedback
+    btn.textContent = '✅ Gmail Opened!';
+    btn.style.background = 'linear-gradient(135deg, #00eaff, #007bff)';
+    document.getElementById('contact-form').reset();
+
+    setTimeout(() => {
+      btn.textContent = 'Send';
+      btn.style.background = '';
+    }, 4000);
+  }
+</script>
+
 </body>
 </html>
 
