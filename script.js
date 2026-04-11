@@ -122,7 +122,7 @@ function typeLoop() {
 
     setTimeout(typeLoop, speed);
 }
-setTimeout(typeLoop, 800);
+setTimeout(typeLoop, 200);
 
 // --- NEW Hero Auto-Typing Role ---
 const typingTitleRoles = [
@@ -375,7 +375,7 @@ async function aiRespond(userMsg) {
     if (OPENAI_API_KEY) {
         reply = await fetchOpenAIReply(userMsg);
     } else {
-        await new Promise(r => setTimeout(r, 800)); // Simulate thinking delay
+        /* artificial delay removed for speed */; // Simulate thinking delay
         reply = getLocalAIReply(userMsg);
     }
 
@@ -874,7 +874,7 @@ function closeZoom() {
 document.addEventListener("DOMContentLoaded", () => {
   // Init cert section immediately on page load
   if (typeof loadCertificates === "function") {
-    setTimeout(() => loadCertificates(), 600);
+    setTimeout(() => loadCertificates(), 50);
   }
 
   const zoomModal = document.getElementById("zoomModal");
@@ -1293,7 +1293,7 @@ function typeMessage(text) {
       msgText.textContent += text.charAt(i); 
       i++;
       chat.scrollTop = chat.scrollHeight;
-      setTimeout(type, 18);
+      setTimeout(type, 5);
     }
   }
   type();
@@ -1483,7 +1483,12 @@ async function sendMessage() {
          content: "You are JARVIS, an advanced, highly intelligent AI assistant for Mydhili Sharan K's cybersecurity portfolio. You speak with a crisp, professional, slightly witty tone. Keep answers concise. Mydhili's skills: AWS Cloud Security, SOC Operations, SIEM, Pentesting, Nmap, Burp Suite. Projects: Blockchain-Based Forensic Framework, Fast Async Port Scanner. Experience: Cyber Security Intern at White and Box Tech Products, SOC Trainee at Infotact Solutions. Certifications: Google Cybersecurity, LetsDefend. Contact: mydhilisharan4766@gmail.com. Do not use markdown like asterisks or bolding, use plain text."
       };
       
+      
+      // Inject ultra-fast timeout controller so Jarvis never lags
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
       const response = await fetch('https://text.pollinations.ai/', {
+          signal: controller.signal,
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({
@@ -1491,6 +1496,7 @@ async function sendMessage() {
           })
       });
       
+      clearTimeout(timeoutId);
       if (!response.ok) throw new Error("API Offline");
       reply = await response.text();
       
