@@ -762,18 +762,7 @@ function savePortfolio() {
 // ==========================================
 
 // Default hardcoded certificates using real image files from /certificate/ folder
-const DEFAULT_CERTIFICATES = [
-  { title: "Cyber Crime Analytics - Part 1", org: "LetsDefend", desc: "Cybercrime analytics training covering investigation techniques and threat analysis.", image: "certificate/cyber%20crime%20analytics%201.jgp.jpeg" },
-  { title: "Cyber Crime Analytics - Part 2", org: "LetsDefend", desc: "Advanced cybercrime analytics covering forensic methodologies and case analysis.", image: "certificate/cyber%20crime%20analytics%202.jpg.jpeg" },
-  { title: "Data Analytics", org: "Coursera", desc: "Data analytics fundamentals including visualization, interpretation, and reporting.", image: "certificate/data%20analytics%20.jpg.jpeg" },
-  { title: "Ethical Hacking", org: "Udemy", desc: "Comprehensive ethical hacking course covering penetration testing tools and techniques.", image: "certificate/ethical%20hacking%20course.jpg.jpeg" },
-  { title: "Google Cybersecurity", org: "Google", desc: "Google's professional cybersecurity certificate covering security operations and risk management.", image: "certificate/google.jpg.jpeg" },
-  { title: "SOC Analysis - Level 2", org: "LetsDefend", desc: "Advanced SOC analyst certification covering incident response and threat hunting.", image: "certificate/letdefend2.jpg.jpeg" },
-  { title: "SOC Analysis - Level 1", org: "LetsDefend", desc: "SOC analyst training covering SIEM operations, log analysis, and alert triaging.", image: "certificate/letsdefend.jpg.jpeg" },
-  { title: "MSK Security Badge", org: "Mydhili Sharan K", desc: "Personal achievement badge recognizing excellence in cybersecurity practice.", image: "certificate/MSHARAN.jpg.jpg" },
-  { title: "Project Completion", org: "Academic", desc: "Project completion certificate for cybersecurity-focused academic work.", image: "certificate/project.jpg.jpeg" },
-  { title: "TryHackMe", org: "TryHackMe", desc: "Hands-on cybersecurity training completing real-world hacking challenges and labs.", image: "certificate/try%20hack%20me.jpg.jpeg" }
-];
+const DEFAULT_CERTIFICATES = [];
 
 let certificates = [...DEFAULT_CERTIFICATES];
 let editId = null;
