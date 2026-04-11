@@ -1511,25 +1511,12 @@ async function sendMessage() {
 
   removeTyping();
 
+  if (!reply.toLowerCase().includes("i am jarvis")) {
+      reply = "I am JARVIS. " + reply;
+  }
   jarvisMemory.push({ role: "assistant", content: reply });
   typeMessage(reply);
   speak(reply);
-}
-
-function resetAI() {
-  jarvisMemory = [];
-  const chat = document.getElementById("chat-body");
-  if (chat) {
-    chat.innerHTML = `
-      <div class="cgpt-bot-row">
-        <div class="cgpt-bot-avatar"><i class="fas fa-robot"></i></div>
-        <div class="cgpt-bot-msg">🧠 Memory cleared! Starting fresh — ask me anything about Mydhili.</div>
-      </div>`;
-  }
-}
-
-// ==========================================
-// VOICE ASSISTANT (NATIVE BROWSER API)
 // ==========================================
 let jarvisRecognition = null;
 let isListening = false;
