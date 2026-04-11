@@ -604,6 +604,11 @@
         // ─── Delete ──────────────────────────────────
         async function deleteMedia(index, dbId, event) {
             event.stopPropagation();
+            const pwd = prompt("Admin Access Required: Enter password to delete media:");
+            if (pwd !== "sharan123") {
+                alert("Access Denied: Incorrect password!");
+                return;
+            }
             if (!confirm('Permanently delete this from the Vault?')) return;
             try {
                 await deleteFromDB(dbId);
@@ -662,6 +667,11 @@
 
         // ─── Modal controls ──────────────────────────
         function openModal() {
+            const pwd = prompt("Admin Access Required: Enter password to upload media:");
+            if (pwd !== "sharan123") {
+                alert("Access Denied: Incorrect password!");
+                return;
+            }
             const m = document.getElementById('modal');
             m.style.display = 'flex';
             document.getElementById('fileInput').value = '';
