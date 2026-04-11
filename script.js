@@ -1334,21 +1334,133 @@ function speak(text) {
 // JARVIS AI — Smart local responses (always works, no API needed)
 let jarvisMemory = [];
 
+class JarvisCore {
+    constructor() {
+        this.intents = [
+            {
+                keywords: ["who are you", "what are you", "your name"],
+                responses: [
+                    "I am JARVIS, Mydhili Sharan K's intelligent personal assistant.",
+                    "They call me JARVIS. I'm a specialized AI integrated into this portfolio to assist you."
+                ],
+                action: null
+            },
+            {
+                keywords: ["skill", "expertise", "know", "tech", "tool", "stack"],
+                responses: [
+                    "Mydhili is a formidable force in AWS Cloud Security, SOC Operations, SIEM monitoring, and Penetration Testing.",
+                    "Her technical arsenal includes AWS (EC2, IAM, GuardDuty), Burp Suite, Nmap, Digital Forensics, and advanced SIEM platforms."
+                ],
+                action: "skills"
+            },
+            {
+                keywords: ["project", "build", "create", "made"],
+                responses: [
+                    "Her engineering projects are exceptional. She has built a Blockchain-Based Forensic Framework, an Async Port Scanner, and cryptographic tools.",
+                    "Mydhili's portfolio includes advanced security tools: a Duplicate File Analyzer and robust penetration testing scripts. Let me direct you to her projects."
+                ],
+                action: "projects"
+            },
+            {
+                keywords: ["experience", "job", "intern", "work", "company"],
+                responses: [
+                    "Mydhili's professional background includes vital roles at White and Box Tech Products, Infotact Solutions, and Aerovant Technology. I'll open the experience section."
+                ],
+                action: "experience"
+            },
+            {
+                keywords: ["cert", "aws", "google", "course", "qualif", "degree"],
+                responses: [
+                    "She is thoroughly credentialed. Her certifications include Google Cybersecurity, LetsDefend SOC Analyst (Level 1 & 2), and Ethical Hacking."
+                ],
+                action: "certifications"
+            },
+            {
+                keywords: ["contact", "email", "phone", "reach", "hire", "linkedin"],
+                responses: [
+                    "I would be delighted to connect you. You can reach her at mydhilisharan4766@gmail.com. Let me navigate to the contact terminal."
+                ],
+                action: "contact"
+            },
+            {
+                keywords: ["hi", "hello", "hey", "greet", "how are you"],
+                responses: [
+                    "Greetings. I am JARVIS. How may I be of service today?",
+                    "Hello there. I am functioning at optimal capacity. What would you like to know about Mydhili?"
+                ],
+                action: null
+            },
+            {
+                keywords: ["joke", "funny", "laugh"],
+                responses: [
+                    "I would tell you a UDP joke, but you might not get it.",
+                    "Why do Java programmers wear glasses? Because they don't C#."
+                ],
+                action: null
+            },
+            {
+                keywords: ["clear", "reset", "forget", "restart"],
+                responses: ["Memory wiped. Ready for new operational parameters."],
+                action: "reset"
+            }
+        ];
+    }
+
+    process(input) {
+        const query = input.toLowerCase();
+        let bestMatch = null;
+        let maxScore = 0;
+
+        for (const intent of this.intents) {
+            let score = 0;
+            for (const kw of intent.keywords) {
+                if (query.includes(kw)) {
+                    score += kw.length;
+                }
+            }
+            if (score > maxScore) {
+                maxScore = score;
+                bestMatch = intent;
+            }
+        }
+
+        if (bestMatch && maxScore > 0) {
+            if (bestMatch.action) {
+                this.executeAction(bestMatch.action);
+            }
+            const replyOptions = bestMatch.responses;
+            return replyOptions[Math.floor(Math.random() * replyOptions.length)];
+        }
+
+        const fallbacks = [
+            "A fascinating inquiry. While I process that, would you like to hear about Mydhili's specific skills or projects?",
+            "I'm afraid my databases don't cover that exact parameter. But I can tell you all about her cybersecurity expertise.",
+            "I am currently optimized to discuss Mydhili's portfolio. Try asking me about her SOC analyst background or GitHub repositories."
+        ];
+        return fallbacks[Math.floor(Math.random() * fallbacks.length)];
+    }
+
+    executeAction(action) {
+        if (action === "reset") {
+            setTimeout(() => { if (typeof resetAI === 'function') resetAI(); }, 1000);
+            return;
+        }
+        setTimeout(() => {
+            const el = document.getElementById(action);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth' });
+                el.style.transition = "box-shadow 0.5s ease";
+                el.style.boxShadow = "0 0 30px #00eaff";
+                setTimeout(() => el.style.boxShadow = "none", 2000);
+            }
+        }, 800);
+    }
+}
+
+const jarvisData = new JarvisCore();
+
 function getJarvisLocalReply(message) {
-    const t = message.toLowerCase();
-    if (t.match(/hi|hello|hey|greet|good/)) return "Good day. I am JARVIS, Mydhili Sharan K's personal AI assistant. How may I be of service?";
-    if (t.match(/who are you|what are you|your name/)) return "I am JARVIS — Just A Rather Very Intelligent System — serving as Mydhili Sharan K's personal portfolio assistant. At your service.";
-    if (t.match(/skill|expertise|know|tech|tool/)) return "Of course. Mydhili specialises in AWS Cloud Security (EC2, IAM, VPC, GuardDuty), SOC Operations with SIEM platforms, Penetration Testing using Nmap and Burp Suite, and Digital Forensics. Quite an impressive arsenal.";
-    if (t.match(/project|build|create/)) return "Certainly. Her notable projects include: a Blockchain-Based Forensic Framework for detecting file timestamp manipulation, a Fast Async Port Scanner for security audits, and a Duplicate File Analyzer using cryptographic hashing.";
-    if (t.match(/experience|job|intern|company/)) return "Right away. Mydhili has interned at White and Box Tech Products as a Cyber Security Intern (2026), worked as a Security Operations Trainee at Infotact Solutions, and as a Cloud Security Intern at Aerovant Technology.";
-    if (t.match(/cert|aws|google|course|qualif/)) return "Indeed. Her certifications include Google Cybersecurity (Coursera), LetsDefend SOC Analyst (Levels 1 & 2), Ethical Hacking (Udemy), and TryHackMe achievements. Thoroughly credentialed.";
-    if (t.match(/contact|email|phone|reach|hire|linkedin/)) return "Allow me. You may reach Mydhili at mydhilisharan4766@gmail.com or via LinkedIn: linkedin.com/in/mydhili-sharan-k-68bb152bb. She is available for cybersecurity opportunities.";
-    if (t.match(/github|code|repo/)) return "Her GitHub is at github.com/mydhilisharan. This portfolio showcases her projects and certifications in detail.";
-    if (t.match(/cloud|aws|azure/)) return "Mydhili's cloud expertise covers AWS EC2, VPC architecture, IAM policy management, CloudTrail auditing, CloudWatch monitoring, GuardDuty threat detection, and KMS encryption.";
-    if (t.match(/soc|siem|threat|incident|monitor/)) return "Mydhili is proficient in SOC Operations — SIEM monitoring, log analysis, threat detection, and incident response, applied at Infotact Solutions.";
-    if (t.match(/hack|pentest|penetrat|exploit|nmap|burp/)) return "In penetration testing, Mydhili works with Nmap, Burp Suite, Metasploit, and SQLMap for database vulnerability assessment. Ethically, of course.";
-    if (t.match(/thank|thanks|appreciate/)) return "You are most welcome. Is there anything else I may assist you with?";
-    return "A most intriguing inquiry. I can assist with questions about Mydhili's skills, projects, experience, certifications, and contact details. What would you like to know?";
+    return jarvisData.process(message);
 }
 
 async function sendMessage() {
