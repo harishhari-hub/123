@@ -558,40 +558,24 @@
 
             const loading = document.getElementById('loading');
             const saveBtn = document.getElementById('saveBtn');
-            if (loading) { loading.style.display = 'flex'; loading.innerHTML = '<div class="spinner"></div><p>Uploading to Cloud Vault...</p>'; }
-            if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Uploading...'; }
+            if (loading) { loading.style.display = 'flex'; loading.innerHTML = '<div class="spinner"></div><p>Saving to Cloud Vault...</p>'; }
+            if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
 
             try {
                 const isVideo = file.type.startsWith('video/');
-                let src = '';
-                let storagePath = '';
 
-                if (isVideo) {
-                    if (!window.storage) throw new Error('Firebase Storage not available.');
-                    const timestamp = Date.now();
-                    storagePath = `gallery/videos/${timestamp}_${file.name}`;
-                    const storageRef = window.storage.ref(storagePath);
+                if (loading) loading.innerHTML = `<div class="spinner"></div><p>${isVideo ? 'Processing video...' : 'Compressing image...'}</p>`;
 
-                    if (loading) loading.innerHTML = '<div class="spinner"></div><p>Uploading video... please wait</p>';
-
-                    const uploadTask = storageRef.put(file);
-                    await new Promise((resolve, reject) => {
-                        uploadTask.on('state_changed',
-                            snap => {
-                                const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
-                                if (loading) loading.innerHTML = `<div class="spinner"></div><p>Uploading video... ${pct}%</p>`;
-                            },
-                            reject,
-                            resolve
-                        );
-                    });
-
-                    src = await storageRef.getDownloadURL();
-                } else {
-                    src = await new Promise((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onerror = () => reject(new Error('File read failed'));
-                        reader.onload = e => {
+                // Read file as base64 data URL (works for both images and videos)
+                const src = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onerror = () => reject(new Error('File read failed'));
+                    reader.onload = e => {
+                        if (isVideo) {
+                            // Store video as-is (base64)
+                            resolve(e.target.result);
+                        } else {
+                            // Compress images via canvas
                             const img = new Image();
                             img.onerror = () => reject(new Error('Image load failed'));
                             img.onload = () => {
@@ -607,15 +591,18 @@
                                 resolve(canvas.toDataURL('image/jpeg', 0.82));
                             };
                             img.src = e.target.result;
-                        };
-                        reader.readAsDataURL(file);
-                    });
-                }
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                });
 
+                if (loading) loading.innerHTML = '<div class="spinner"></div><p>Syncing to cloud...</p>';
+
+                // Save directly to Firestore (no Storage bucket needed)
                 await window.db.collection(COLLECTION).add({
                     type: isVideo ? 'video' : 'image',
                     src,
-                    storagePath,
+                    storagePath: '',
                     name: file.name,
                     date: new Date().toLocaleDateString('en-GB'),
                     timestamp: Date.now()
@@ -627,7 +614,7 @@
 
             } catch(err) {
                 console.error('Save failed:', err);
-                alert('Upload failed: ' + err.message);
+                alert('Save failed: ' + err.message);
             } finally {
                 if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save to Vault'; }
                 if (loading) { loading.innerHTML = '<div class="spinner"></div><p>Loading Vault...</p>'; loading.style.display = 'none'; }
