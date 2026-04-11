@@ -564,45 +564,33 @@
             try {
                 const isVideo = file.type.startsWith('video/');
 
-                if (loading) loading.innerHTML = `<div class="spinner"></div><p>${isVideo ? 'Processing video...' : 'Compressing image...'}</p>`;
+                if (loading) loading.innerHTML = `<div class="spinner"></div><p>Uploading to Cloud Storage ${isVideo ? '(Video)' : '(Image)'}...</p>`;
 
-                // Read file as base64 data URL (works for both images and videos)
-                const src = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onerror = () => reject(new Error('File read failed'));
-                    reader.onload = e => {
-                        if (isVideo) {
-                            // Store video as-is (base64)
-                            resolve(e.target.result);
-                        } else {
-                            // Compress images via canvas
-                            const img = new Image();
-                            img.onerror = () => reject(new Error('Image load failed'));
-                            img.onload = () => {
-                                const canvas = document.createElement('canvas');
-                                let w = img.width, h = img.height;
-                                const max = 1200;
-                                if (w > max || h > max) {
-                                    if (w > h) { h = h * max / w; w = max; }
-                                    else       { w = w * max / h; h = max; }
-                                }
-                                canvas.width = w; canvas.height = h;
-                                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                                resolve(canvas.toDataURL('image/jpeg', 0.82));
-                            };
-                            img.src = e.target.result;
-                        }
-                    };
-                    reader.readAsDataURL(file);
+                // Upload to Cloudinary directly (bypasses 1MB size limit and handles big files easily)
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('upload_preset', 'portfolio_vault'); // Created via your dashboard
+
+                const cloudinaryRes = await fetch('https://api.cloudinary.com/v1_1/dnk2p8ndz/upload', {
+                    method: 'POST',
+                    body: formData
                 });
 
-                if (loading) loading.innerHTML = '<div class="spinner"></div><p>Syncing to cloud...</p>';
+                const cloudinaryData = await cloudinaryRes.json();
 
-                // Save directly to Firestore (no Storage bucket needed)
+                if (!cloudinaryRes.ok) {
+                    throw new Error(cloudinaryData.error?.message || 'Cloudinary upload failed');
+                }
+
+                const src = cloudinaryData.secure_url;
+
+                if (loading) loading.innerHTML = '<div class="spinner"></div><p>Syncing to Cloud Vault...</p>';
+
+                // Save only the URL to Firestore (no size limit issues)
                 await window.db.collection(COLLECTION).add({
                     type: isVideo ? 'video' : 'image',
                     src,
-                    storagePath: '',
+                    storagePath: cloudinaryData.public_id,
                     name: file.name,
                     date: new Date().toLocaleDateString('en-GB'),
                     timestamp: Date.now()
