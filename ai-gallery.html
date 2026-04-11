@@ -422,55 +422,31 @@
         <span class="lightbox-hint">ESC to close &nbsp;|&nbsp; ← → to navigate &nbsp;|&nbsp; Double-click card to open</span>
     </div>
 
-    <!-- MAIN GALLERY SCRIPT — IndexedDB (no size limit) -->
+    <!-- MAIN GALLERY SCRIPT — Firebase Cloud Sync (cross-device, permanent) -->
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-storage-compat.js"></script>
+    <script src="firebase-config.js"></script>
+
     <script>
         // =============================================
-        // SHARAN VAULT — IndexedDB (unlimited storage)
+        // JARVIS VAULT — Firebase Cloud Sync
+        // Images → Firestore (base64 compressed)
+        // Videos → Firebase Storage (raw file) + Firestore (URL ref)
         // =============================================
-        const DB_NAME = 'SharanVault';
-        const DB_VERSION = 1;
-        const STORE = 'media';
         let galleryData = [];
-        let currentIdx = 0;
+        let currentIdx  = 0;
+        const COLLECTION = 'jarvis_vault';
 
-        // ─── IndexedDB helpers ─────────────────────
-        function openDB() {
-            return new Promise((resolve, reject) => {
-                const req = indexedDB.open(DB_NAME, DB_VERSION);
-                req.onupgradeneeded = e => {
-                    const db = e.target.result;
-                    if (!db.objectStoreNames.contains(STORE)) {
-                        const s = db.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
-                        s.createIndex('timestamp', 'timestamp', { unique: false });
-                    }
-                };
-                req.onsuccess = e => resolve(e.target.result);
-                req.onerror  = e => reject(e.target.error);
-            });
-        }
-        async function loadFromDB() {
-            const db = await openDB();
-            return new Promise((resolve, reject) => {
-                const req = db.transaction(STORE, 'readonly').objectStore(STORE).getAll();
-                req.onsuccess = () => resolve(req.result.sort((a,b) => b.timestamp - a.timestamp));
-                req.onerror  = () => reject(req.error);
-            });
-        }
-        async function saveToDB(item) {
-            const db = await openDB();
-            return new Promise((resolve, reject) => {
-                const req = db.transaction(STORE, 'readwrite').objectStore(STORE).add(item);
-                req.onsuccess = () => resolve(req.result);
-                req.onerror  = () => reject(req.error);
-            });
-        }
-        async function deleteFromDB(id) {
-            const db = await openDB();
-            return new Promise((resolve, reject) => {
-                const req = db.transaction(STORE, 'readwrite').objectStore(STORE).delete(id);
-                req.onsuccess = () => resolve();
-                req.onerror  = () => reject(req.error);
-            });
+        // Wait for firebase to be ready before loading
+        function waitForFirebase(cb) {
+            if (window.firebaseInitialized !== undefined) {
+                cb();
+            } else {
+                window.addEventListener('firebaseReady', cb, { once: true });
+            }
         }
 
         // ─── Render ──────────────────────────────────
@@ -501,6 +477,7 @@
             galleryData.forEach((item, index) => {
                 const isVideo = item.type === 'video';
                 const dateStr = item.date || '';
+                const storagePath = item.storagePath || '';
 
                 const card = `
                     <div class="gallery-item ${isVideo ? 'is-video' : ''}"
@@ -511,7 +488,7 @@
                                <div class="video-play-badge">🎬 VIDEO</div>`
                             : `<img src="${item.src}" loading="lazy" alt="Vault Item">`
                         }
-                        <div class="delete-btn" onclick="deleteMedia(${index}, ${item.id}, event)">
+                        <div class="delete-btn" onclick="deleteMedia(${index}, '${item.id}', '${storagePath}', event)">
                             <svg viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                         </div>
                         <div class="item-overlay">
@@ -527,68 +504,118 @@
             if (hasImages) container.innerHTML += `<h2 class="section-title">Images Session</h2><div class="gallery-grid">${imagesHTML}</div>`;
             if (hasVideos) container.innerHTML += `<h2 class="section-title">Videos Session</h2><div class="gallery-grid">${videosHTML}</div>`;
 
-            // Force autoplay on all videos
             setTimeout(() => {
                 container.querySelectorAll('video').forEach(v => { v.muted = true; v.play().catch(()=>{}); });
             }, 100);
         }
 
-        // ─── Load ────────────────────────────────────
+        // ─── Load from Firestore ──────────────────────
         async function loadGalleryData() {
             const loading = document.getElementById('loading');
             if (loading) loading.style.display = 'flex';
             try {
-                galleryData = await loadFromDB();
+                if (!window.db) throw new Error('Firebase not initialized');
+                const snapshot = await window.db.collection(COLLECTION).orderBy('timestamp', 'desc').get();
+                galleryData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             } catch(e) {
-                console.warn('IndexedDB load failed:', e);
-                galleryData = [];
+                console.warn('Firebase load failed, trying IndexedDB fallback:', e);
+                try {
+                    galleryData = await loadFromIndexedDB();
+                } catch(e2) {
+                    galleryData = [];
+                }
             } finally {
                 renderGallery();
                 if (loading) loading.style.display = 'none';
             }
         }
 
-        // ─── Upload ──────────────────────────────────
+        // ─── IndexedDB offline fallback ───────────────
+        async function loadFromIndexedDB() {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open('SharanVault', 1);
+                req.onsuccess = e => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains('media')) { resolve([]); return; }
+                    const r = db.transaction('media','readonly').objectStore('media').getAll();
+                    r.onsuccess = () => resolve(r.result.sort((a,b)=>b.timestamp-a.timestamp));
+                    r.onerror   = () => reject(r.error);
+                };
+                req.onerror = e => reject(e.target.error);
+            });
+        }
+
+        // ─── Upload to Firebase ───────────────────────
         async function addMedia() {
             const fileInput = document.getElementById('fileInput');
             const file = fileInput && fileInput.files[0];
             if (!file) { alert('Please select a file!'); return; }
 
+            if (!window.db) {
+                alert('Firebase connection not available. Check your internet connection and try again.');
+                return;
+            }
+
             const loading = document.getElementById('loading');
             const saveBtn = document.getElementById('saveBtn');
-            if (loading) { loading.style.display = 'flex'; loading.innerHTML = '<div class="spinner"></div><p>Saving to Vault...</p>'; }
-            if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
+            if (loading) { loading.style.display = 'flex'; loading.innerHTML = '<div class="spinner"></div><p>Uploading to Cloud Vault...</p>'; }
+            if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Uploading...'; }
 
             try {
                 const isVideo = file.type.startsWith('video/');
-                const dataUrl = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onerror = () => reject(new Error('File read failed'));
-                    reader.onload = e => {
-                        if (isVideo) { resolve(e.target.result); return; }
-                        // Compress images
-                        const img = new Image();
-                        img.onerror = () => reject(new Error('Image load failed'));
-                        img.onload = () => {
-                            const canvas = document.createElement('canvas');
-                            let w = img.width, h = img.height;
-                            const max = 1200;
-                            if (w > max || h > max) {
-                                if (w > h) { h = h * max / w; w = max; }
-                                else       { w = w * max / h; h = max; }
-                            }
-                            canvas.width = w; canvas.height = h;
-                            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                            resolve(canvas.toDataURL('image/jpeg', 0.85));
-                        };
-                        img.src = e.target.result;
-                    };
-                    reader.readAsDataURL(file);
-                });
+                let src = '';
+                let storagePath = '';
 
-                await saveToDB({
+                if (isVideo) {
+                    if (!window.storage) throw new Error('Firebase Storage not available.');
+                    const timestamp = Date.now();
+                    storagePath = `gallery/videos/${timestamp}_${file.name}`;
+                    const storageRef = window.storage.ref(storagePath);
+
+                    if (loading) loading.innerHTML = '<div class="spinner"></div><p>Uploading video... please wait</p>';
+
+                    const uploadTask = storageRef.put(file);
+                    await new Promise((resolve, reject) => {
+                        uploadTask.on('state_changed',
+                            snap => {
+                                const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
+                                if (loading) loading.innerHTML = `<div class="spinner"></div><p>Uploading video... ${pct}%</p>`;
+                            },
+                            reject,
+                            resolve
+                        );
+                    });
+
+                    src = await storageRef.getDownloadURL();
+                } else {
+                    src = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onerror = () => reject(new Error('File read failed'));
+                        reader.onload = e => {
+                            const img = new Image();
+                            img.onerror = () => reject(new Error('Image load failed'));
+                            img.onload = () => {
+                                const canvas = document.createElement('canvas');
+                                let w = img.width, h = img.height;
+                                const max = 1200;
+                                if (w > max || h > max) {
+                                    if (w > h) { h = h * max / w; w = max; }
+                                    else       { w = w * max / h; h = max; }
+                                }
+                                canvas.width = w; canvas.height = h;
+                                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                                resolve(canvas.toDataURL('image/jpeg', 0.82));
+                            };
+                            img.src = e.target.result;
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                }
+
+                await window.db.collection(COLLECTION).add({
                     type: isVideo ? 'video' : 'image',
-                    src:  dataUrl,
+                    src,
+                    storagePath,
                     name: file.name,
                     date: new Date().toLocaleDateString('en-GB'),
                     timestamp: Date.now()
@@ -596,28 +623,31 @@
 
                 closeModal();
                 await loadGalleryData();
-                alert('✅ Saved to Vault!');
+                alert('✅ Saved to Cloud Vault! Visible on all devices instantly.');
 
             } catch(err) {
                 console.error('Save failed:', err);
-                alert('Save failed: ' + err.message);
+                alert('Upload failed: ' + err.message);
             } finally {
                 if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save to Vault'; }
                 if (loading) { loading.innerHTML = '<div class="spinner"></div><p>Loading Vault...</p>'; loading.style.display = 'none'; }
             }
         }
 
-        // ─── Delete ──────────────────────────────────
-        async function deleteMedia(index, dbId, event) {
+        // ─── Delete from Firebase ─────────────────────
+        async function deleteMedia(index, docId, storagePath, event) {
             event.stopPropagation();
             const pwd = prompt("Admin Access Required: Enter password to delete media:");
             if (pwd !== "1206") {
                 alert("Access Denied: Incorrect password!");
                 return;
             }
-            if (!confirm('Permanently delete this from the Vault?')) return;
+            if (!confirm('Permanently delete this from the Cloud Vault?')) return;
             try {
-                await deleteFromDB(dbId);
+                await window.db.collection(COLLECTION).doc(docId).delete();
+                if (storagePath && storagePath !== 'undefined') {
+                    try { await window.storage.ref(storagePath).delete(); } catch(e) { }
+                }
                 galleryData.splice(index, 1);
                 renderGallery();
             } catch(e) { alert('Delete failed: ' + e.message); }
@@ -702,8 +732,10 @@
         document.getElementById('vaultAddBtn').addEventListener('click', openModal);
 
         window.addEventListener('load', () => {
-            loadGalleryData();
-            // Safety net
+            waitForFirebase(() => {
+                loadGalleryData();
+            });
+            // Safety net: hide loader after 8s if stuck
             setTimeout(() => {
                 const l = document.getElementById('loading');
                 if (l && l.style.display !== 'none') {
