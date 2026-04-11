@@ -1476,11 +1476,35 @@ async function sendMessage() {
   jarvisMemory.push({ role: "user", content: message });
   if (jarvisMemory.length > 20) jarvisMemory = jarvisMemory.slice(-20);
 
-  // JARVIS thinking delay
-  await new Promise(r => setTimeout(r, 700 + Math.random() * 400));
+  let reply = "";
+  try {
+      const systemPrompt = {
+         role: "system", 
+         content: "You are JARVIS, an advanced, highly intelligent AI assistant for Mydhili Sharan K's cybersecurity portfolio. You speak with a crisp, professional, slightly witty tone. Keep answers concise. Mydhili's skills: AWS Cloud Security, SOC Operations, SIEM, Pentesting, Nmap, Burp Suite. Projects: Blockchain-Based Forensic Framework, Fast Async Port Scanner. Experience: Cyber Security Intern at White and Box Tech Products, SOC Trainee at Infotact Solutions. Certifications: Google Cybersecurity, LetsDefend. Contact: mydhilisharan4766@gmail.com. Do not use markdown like asterisks or bolding, use plain text."
+      };
+      
+      const response = await fetch('https://text.pollinations.ai/', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+              messages: [systemPrompt, ...jarvisMemory]
+          })
+      });
+      
+      if (!response.ok) throw new Error("API Offline");
+      reply = await response.text();
+      
+      try {
+          jarvisData.process(message); // triggers UI scroll actions silently
+      } catch(e) {}
+      
+  } catch (error) {
+      console.warn("High Intel AI unavailable, falling back to Local Core:", error);
+      reply = getJarvisLocalReply(message);
+  }
+
   removeTyping();
 
-  const reply = getJarvisLocalReply(message);
   jarvisMemory.push({ role: "assistant", content: reply });
   typeMessage(reply);
   speak(reply);
